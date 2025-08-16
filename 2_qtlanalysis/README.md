@@ -118,7 +118,7 @@ The pipeline identifies genes where eQTL signals colocalize with cancer GWAS sig
 - **LD estimation**: GTEx WGS reference panel
 - **Significance thresholds**:
   - eQTL FDR < 0.05
-  - GWAS p < 5×10⁻⁷
+  - GWAS p < 5×10⁻8
   - CLPP ≥ 0.01
 
 ## Output Structure
