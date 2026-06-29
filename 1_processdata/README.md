@@ -1,156 +1,47 @@
-# GTEx Data Processing Pipeline
-
-This repository contains scripts for processing GTEx (Genotype-Tissue Expression) RNA-seq data through multiple annotation versions and analysis approaches. The pipeline supports processing data with GENCODE v27, v38, and v45 annotations using both Salmon and STAR alignment strategies.
+# QTL / Colocalization / TWAS Pipeline
 
 ## Overview
 
-The pipeline processes GTEx BAM files through the following major steps:
-1. **BAM to FASTQ conversion** - Extract paired-end reads from original BAM files
-2. **Quantification/Alignment** - Process reads using either Salmon or STAR
-3. **Gene-level summarization** - Aggregate transcript-level data to genes
-4. **Normalization** - Apply TMM normalization for comparative analysis
-5. **BED file generation** - Create QTLtools-compatible expression files
+Downstream of the requantification pipeline: takes the polished per-tissue, per-annotation, per-method expression RDS files and runs cis-eQTL mapping, GWAS colocalization, and TWAS model training/testing across all annotation × quantification-method × tissue combinations.
 
-## Pipeline Components
+Most steps are driven by a shared 768 row parameter space file, `requant_paramspace.txt` (columns: `annot`, `quant`, `tissue`), with one LSF array index per row.
 
-### 1. BAM to FASTQ Conversion and Salmon Quantification
+## s01 — Format covariates
+**`r1_s01_writeCovariates.R`**
+Loops over every tissue, reads GTEx's standard `.covar` covariate file, transposes/reformats it into the tab-delimited layout QTLtools expects, and writes `<tissue>_formatted_covariates.txt`. Run once per tissue, not part of the array jobs.
 
-**Primary Script:** `bam_to_fastq_master.sh`
-**Batch Submission:** `importGTExv45_all.sh`
+## s02 — RDS → BED
+**`r1_s02_RDStoBed.R`** / **`r1_s02_RDStoBed.sh`**
+For one annot/quant/tissue combo: loads the polished gene-level RDS, pulls out TMM-normalized counts, log2-transforms, filters low-expressed genes, attaches Ensembl gene coordinates, and writes a QTLtools-formatted BED of normalized expression (`<annot>_<quant>.v8.normalized_expression.bed`). Array job over the full paramspace (1-768).
 
-This component:
-- Converts GTEx BAM files to paired-end FASTQ format using samtools
-- Runs Salmon quantification against GENCODE v45 transcriptome
-- Processes samples in parallel using LSF job arrays (1-48 tissues)
+## s03 — cis-eQTL mapping
+**`r1_s03_qtltools.sh`** *(bash only, no R script)*
+bgzip/tabix-indexes the BED from s02, then runs `QTLtools cis --permute 1000` against the GTEx genotype VCF and the formatted covariates to get permutation-pass cis-eQTL results per annot/quant/tissue. Array job (1–768).
 
-**Key Features:**
-- Name-sorts BAM files before FASTQ extraction
-- Uses Salmon with bias correction and mapping validation
-- Automatically cleans up intermediate files to save storage
+*(s04 not included in this batch — presumably an eGene-aggregation step feeding the `r1_aggregated_eGene_lists.RDS` used in s05.)*
 
-### 2. STAR Alignment Pipeline
+## s05 — Colocalization
+**`r1_s05_coloc.R`** / **`r1_s05_coloc.sh`**
+For a bin of eGenes (annot/quant/tissue + GWAS pheno file/name, with optional hg19→hg38 liftover): pulls GWAS summary stats near each gene, intersects SNPs with GTEx genotypes, computes LD, runs QTLtools nominal pass + eCAVIAR, and writes per-gene colocalization output (CLPP etc.) to `coloc_results/<tissue>/`.
 
-**Primary Scripts:** 
-- `alignSTAR.sh` - Individual sample processing
-- `alignSTAR_by_file.sh` - Batch processing by tissue file
-- `alignSTAR_jobarray.sh` - LSF job array submission
+## s06 — Train TWAS
+**`r1_s06_gather_coloc.R`** / **`r1_s06_gather_coloc.sh`**
+First, collects all per-gene coloc result files for one annot/quant/tissue across 7 phenotypes (breast/prostate cancer, T2D, BMI, height, schizophrenia, bipolar disorder), filters to significant colocalization hits, and writes one combined hits file per tissue/annot/quant/pheno. Array job (1–768).
 
-This component:
-- Performs STAR alignment against GRCh38 reference genome
-- Generates coordinate-sorted BAM files with splice junction information
-- Supports both GENCODE v38 and v45 processing
+**`r1_s06_trainTWAS.R`** / **`r1_s06_trainTWAS.sh`**
+For one annot/quant/tissue + a gene-bin index: covariate-corrects the expression BED via `QTLtools correct`, then for each gene in the bin fits elastic net, BLUP, and SuSiE expression-prediction models (via `isotwas`) on local genotypes, keeps whichever has the best cross-validated R², and saves the SNP weights (or a placeholder if R² < 0.01) to `TWAS_weights/<tissue>_<annot>_<quant>/<gene>_TWAS.RDS`.
 
-**STAR Parameters:**
-- Multi-mapping: up to 20 alignments per read
-- Splice junction overhang: minimum 8bp
-- Intron size: 20bp to 1Mb
-- Outputs coordinate-sorted BAM with standard attributes
+## s08 — Run TWAS
+**`r1_s08_runTWAS.R`** / **`r1_s08_runTWAS.sh`**
+For one row of the aggregated, R²-filtered TWAS model table (a tissue/annot/quant combo) and a bin of its genes: lifts over GWAS summary stats if needed, and for each gene intersects GWAS/model/genotype SNPs, computes LD, flips alleles as needed, and computes the TWAS burden Z-statistic plus the top local GWAS SNP. Writes one result file per gene/pheno/annot/quant.
 
-### 3. Gene Counting with featureCounts
+## s09 — Gather TWAS results
+**`r1_s09_gather_TWAS.sh`** 
+For each annot/quant/tissue row in the paramspace and a fixed phenotype (`Height` as currently set), concatenates all per-gene TWAS Z-score files into one combined `r1_twas_z_<annot>_<quant>_<tissue>_<pheno>.txt`. Array job (1–768).
 
-**Primary Script:** `countGene_featureCounts.R`
+---
 
-Features:
-- Uses Rsubread::featureCounts for gene-level quantification
-- Supports both GENCODE v38 and v45 annotations
-- Processes STAR-aligned BAM files
-- Handles paired-end reads with multi-threading
-
-### 4. Transcript-Level Processing and Normalization
-
-**Primary Script:** `importGTExv45.R`
-
-This R script:
-- Uses tximeta for transcript-level import from Salmon quantifications
-- Summarizes transcript expression to gene-level using summarizeToGene()
-- Applies TMM (Trimmed Mean of M-values) normalization using edgeR
-- Creates multiple expression matrices:
-  - Raw counts
-  - TPM (Transcripts Per Million)
-  - TMM-normalized CPM
-  - Log2(TMM+1) transformed values
-
-### 5. BED File Generation for QTL Analysis
-
-**Primary Scripts:**
-- `writeExpBed.R` - Main processing script
-- `writeExpBed.sh` - LSF batch submission
-
-Creates QTLtools-compatible BED files containing:
-- Chromosome coordinates (chr1-22 only)
-- Gene identifiers (Ensembl IDs)
-- Log2-transformed expression values
-- Proper BED format with bgzip compression and tabix indexing
-
-**Processing Rules:**
-- Filters genes with ≤0.1 TPM in >25% of samples
-- Removes duplicate samples and genes
-- Applies log2(x+1) transformation
-- Generates separate files for v27, v38, and v45 annotations
-
-## Key Dependencies
-
-### R Packages
-- **tximeta** - Transcript-level import and metadata
-- **edgeR** - TMM normalization and differential expression
-- **DESeq2** - Alternative normalization methods
-- **SummarizedExperiment** - Data container objects
-- **Rsubread** - Feature counting from alignments
-- **rtracklayer** - GTF/GFF file handling
-- **biomaRt** - Gene annotation and mapping
-
-### External Tools
-- **Salmon** - Transcript quantification
-- **STAR** - Splice-aware alignment
-- **samtools** - BAM file manipulation
-- **bgzip/tabix** - File compression and indexing
-
-## Usage Examples
-
-### Process single tissue through Salmon pipeline:
-```bash
-# Submit job array for all tissues
-bsub < importGTExv45_all.sh
-```
-
-### Generate BED files for QTL analysis:
-```bash
-# Process specific tissue (index 1-48)
-bsub -J "writeExpBed[1-48]" writeExpBed.sh
-```
-
-### Run STAR alignment with gene counting:
-```bash
-# Submit combined STAR + featureCounts jobs
-bsub < alignSTAR_jobarray.sh
-```
-
-## Output Files
-
-### Expression Matrices
-- **[TISSUE]_gene.RDS** - SummarizedExperiment with multiple assays
-- **[TISSUE]_transcripts.RDS** - Transcript-level expression data
-
-### QTL-ready Files
-- **[TISSUE]_v[VERSION].bed.gz** - Compressed BED files with expression
-- **[TISSUE]_v[VERSION].bed.gz.tbi** - Tabix indices
-
-### Count Matrices
-- **[TISSUE]_v[VERSION].RDS** - featureCounts output with annotations
-
-## Notes
-
-- The pipeline is designed for LSF batch systems with job arrays
-- Memory requirements vary by tissue size (10-80GB typical)
-- Storage requirements are substantial due to intermediate FASTQ files
-- All scripts include automatic cleanup of temporary files
-- Version compatibility is maintained across GENCODE releases v27, v38, and v45
-
-## Quality Control
-
-The pipeline includes several QC measures:
-- Duplicate sample and gene removal
-- Low-expression gene filtering (≤0.1 TPM in >25% samples)
-- File size validation for alignment outputs
-- Chromosome filtering (autosomes only: chr1-22)
-- Proper handling of gene ID versioning across GENCODE releases
+### Module/dependency notes
+- R steps load a personal library path (`/rsrch5/home/epi/sthead/R/...`) and lean on `data.table`, `dplyr`, `edgeR`, `bigsnpr`, `rtracklayer`/`GenomicRanges` (liftover), and `isotwas` (TWAS model training).
+- s03/s05/s06_trainTWAS/s08 all shell out to external binaries: `QTLtools`, `tabix`/`bgzip`, `plink2`, and (s05 only) `eCAVIAR`.
+- Steps keyed on the paramspace file (`s02`, `s03`, `s06_gather_coloc`, `s09`) read their `annot`/`quant`/`tissue` triplet from `requant_paramspace.txt` via the LSF array index; `s05`, `s06_trainTWAS`, and `s08` take additional positional args (GWAS pheno info, gene bin index) on top of that.
