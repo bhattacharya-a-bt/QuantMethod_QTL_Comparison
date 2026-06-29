@@ -1,3 +1,7 @@
+# Requantification of GTEx Files
+
+For scripts related to the the processing and requantification of all GTEx v8 files for a given annotation and quantification method prior to downstream QTL/colocalization/TWAS, please see the `requantification_scripts` directory and its `README`.
+
 # QTL / Colocalization / TWAS Pipeline
 
 ## Overview
