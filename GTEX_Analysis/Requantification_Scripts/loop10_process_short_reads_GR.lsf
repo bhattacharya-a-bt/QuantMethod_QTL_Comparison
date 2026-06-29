@@ -1,0 +1,104 @@
+#!/bin/bash
+#BSUB -W 48:00
+#BSUB -n 1
+#BSUB -M 2
+#BSUB -R rusage[mem=2]
+#BSUB -o /rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants
+#BSUB -e /rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants
+#BSUB -q long
+
+sample_IDs=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/GTEx_v8_sample_attributes.txt
+bamdir=/rsrch3/scratch/reflib/GTEx/SourceFiles/Bam
+tissue=Brain_Hippocampus
+user=stbresnahan
+
+mkdir -p /rsrch5/scratch/epi/${user}/GTEx_v8/{temp,raw,reports,metrics,align,quant}/${tissue}
+
+DIR_SCRIPTS=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/Scripts
+
+# Collect all sample IDs for the tissue
+FILES=( $(awk -F'\t' -v t="$tissue" 'NR>1 && $3 == t {print $1}' "${sample_IDs}") )
+
+FOUND=0
+SELECTED=()
+
+# --- Collect first 10 samples that actually have BAM files ---
+for FILE in "${FILES[@]}"; do
+    MATCH=$(ls "${bamdir}/${FILE}"*.bam 2>/dev/null | head -n 1)
+    if [[ -n "$MATCH" ]]; then
+        SELECTED+=("$FILE")
+        ((FOUND++))
+        if [[ $FOUND -eq 10 ]]; then
+            break
+        fi
+    fi
+done
+
+echo "Selected ${#SELECTED[@]} samples with BAMs (showing first 10):"
+printf "%s\n" "${SELECTED[@]}"
+echo
+
+# --- Submit jobs for the 10 selected samples ---
+for FILE in "${SELECTED[@]}"; do
+    
+    MATCH=$(basename "$(ls "${bamdir}/${FILE}"*.bam 2>/dev/null | head -n 1)")
+
+    F=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/Ensembl/${tissue}/featureCounts/${FILE}_transcript.txt
+    R=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/Ensembl/${tissue}/RSEM/${FILE}.isoforms.results
+    S=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/Ensembl/${tissue}/salmon/${FILE}/quant.sf
+    K=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/Ensembl/${tissue}/kallisto/${FILE}/abundance.tsv
+    Q=/rsrch5/scratch/epi/${user}/GTEx_v8/raw/${tissue}/${FILE}_R2.fastq.gz
+
+    [[ -f "$F" ]] && FEATURECOUNTS=FALSE || FEATURECOUNTS=TRUE
+    [[ -f "$R" ]] && RSEM=FALSE || RSEM=TRUE
+    [[ -f "$S" ]] && SALMON=FALSE || SALMON=TRUE
+    [[ -f "$K" ]] && KALLISTO=FALSE || KALLISTO=TRUE
+    
+    if [[ "$FEATURECOUNTS" == "FALSE" && "$RSEM" == "FALSE" && "$SALMON" == "FALSE" && "$KALLISTO" == "FALSE" ]]; then
+        echo "${FILE} already completed [X]"
+        continue
+    fi
+
+    if [[ "$FEATURECOUNTS" == "TRUE" || "$RSEM" == "TRUE" || "$SALMON" == "TRUE" || "$KALLISTO" == "TRUE" ]]; then
+        [[ -f "$Q" ]] && PULL=FALSE || PULL=TRUE
+    else
+        PULL=FALSE
+    fi
+
+    [[ "$FEATURECOUNTS" == "TRUE" ]] && ALIGN=TRUE || ALIGN=FALSE
+
+    echo "Submitting: $MATCH"
+    bsub -env FILE=${MATCH},TISSUE=${tissue},USER=${user},PULL=${PULL},ALIGN=${ALIGN},SALMON=${SALMON},FEATURECOUNTS=${FEATURECOUNTS},RSEM=${RSEM},KALLISTO=${KALLISTO} \
+         < "${DIR_SCRIPTS}/run_process_short_reads_GR.lsf"
+done
+
+
+# ============ DISK WATCH LOOP (runs every 5 minutes) ============
+
+SCRATCH_DIR="/rsrch5/scratch/epi/${user}/GTEx_v8"
+
+REQ1="/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/Ensembl/${tissue}"
+REQ2="/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/GENCODE_v27/${tissue}"
+REQ3="/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/GENCODE_v38/${tissue}"
+REQ4="/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/GENCODE_v45/${tissue}"
+
+echo
+echo "Entering 5-minute disk-usage monitor loop..."
+echo
+
+while true; do
+    TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+
+    # Max usage in scratch for user
+    SCRATCH_MAX=$(du -sh ${SCRATCH_DIR}/* 2>/dev/null | awk '{print $1}' | sort -h | tail -n1)
+
+    # Max usage across 4 requants dirs
+    REQ_MAX=$(du -sh "$REQ1" "$REQ2" "$REQ3" "$REQ4" 2>/dev/null | awk '{print $1}' | sort -h | tail -n1)
+
+    echo "[$TIMESTAMP]"
+    echo "  Scratch max ( ${SCRATCH_DIR} ):         $SCRATCH_MAX"
+    echo "  Requant max (4 dirs for ${tissue}):     $REQ_MAX"
+    echo
+
+    sleep 300   # 5 minutes
+done
