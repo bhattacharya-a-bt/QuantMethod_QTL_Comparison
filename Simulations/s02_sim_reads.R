@@ -1,20 +1,34 @@
 #!/usr/bin/env Rscript
 
 ####################################################################################
-# change library to local
+# Usage:
+#   Rscript simulate_reads.R <sample> <pass> <param_row_reads> <base_dir> <txome_fa>
+#
+# Arguments (positional, all required):
+#   sample         - integer row index into the aggregated expression matrix
+#   pass           - pass number for annotation / parameter / reads / expression files
+#   param_row_reads- integer row index into parameter_space_reads.txt
+#   base_dir       - base project directory (replaces the previously hardcoded root).
+#                    Paths are reconstructed internally as:
+#                      <base_dir>/pass<pass>/files_for_analysis/anno_selected_genes.txt
+#                      <base_dir>/pass<pass>/files_for_analysis/parameter_space_reads.txt
+#                      <base_dir>/pass<pass>/files_for_analysis/reads/
+#                      <base_dir>/pass<pass>/files_for_analysis/expression/
+#                      <base_dir>/pass<pass>/files_for_analysis/expression/aggregatedY.RData
+#   txome_fa       - full path to the transcriptome FASTA used by scanFasta/simReads
+#                    (e.g. .../gencode.v38.transcripts.fa). Lives outside base_dir, so
+#                    it is passed explicitly rather than reconstructed.
 ####################################################################################
-
-myPaths <- .libPaths()
-myPaths <- c("/rsrch5/home/epi/sthead/R/x86_64-pc-linux-gnu-library/4.3", myPaths)
-.libPaths(myPaths)
 
 ####################################################################################
 # parse arguments
 ####################################################################################
 args <- commandArgs(trailingOnly = TRUE)
-sample <- as.numeric(args[1])
-pass <- as.numeric(args[2])
-param_row_reads <- as.numeric(args[3])
+sample         <- as.numeric(args[1])
+pass           <- as.numeric(args[2])
+param_row_reads<- as.numeric(args[3])
+base_dir       <- args[4]
+txome_fa       <- args[5]
 
 ####################################################################################
 # load dependencies
@@ -40,7 +54,7 @@ window = 250000
 # read in annotation data
 ####################################################################################
 
-anno <- read.table(paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass",pass,"/files_for_analysis/anno_selected_genes.txt"),header=T)
+anno <- read.table(paste0(base_dir, "/pass", pass, "/files_for_analysis/anno_selected_genes.txt"), header=T)
 
 # summarize annotation table by gene
 anno_gene <- anno %>%
@@ -60,37 +74,39 @@ gene_list <- unique(anno_gene$GeneID)
 # simulate reads
 ####################################################################################
 
-param_space_reads <- fread(paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass",pass,"/files_for_analysis/parameter_space_reads.txt"))
+param_space_reads <- fread(paste0(base_dir, "/pass", pass, "/files_for_analysis/parameter_space_reads.txt"))
 library_size <- param_space_reads$library_size[param_row_reads]
 read_length <- param_space_reads$read_length[param_row_reads]
 paired_end <- param_space_reads$paired_end[param_row_reads]
 paired_end <- as.logical(paired_end)
 
-reads_dir <- paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass",pass,"/files_for_analysis/reads")
+reads_dir <- paste0(base_dir, "/pass", pass, "/files_for_analysis/reads")
 
 if(!dir.exists(reads_dir)){
   dir.create(reads_dir)
 }
 
-fa.file <- paste0("/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v38/gencode.v38.transcripts.fa")
-transcripts <- scanFasta(fa.file)
+transcripts <- scanFasta(txome_fa)
 tx_id <- str_extract(transcripts$TranscriptID, "^[^|]+")
 
 
-if(file.exists(paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass",pass,"/files_for_analysis/expression/aggregatedY.RData"))){
-   load(paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass",pass,"/files_for_analysis/expression/aggregatedY.RData"))
+expr_dir <- paste0(base_dir, "/pass", pass, "/files_for_analysis/expression")
+aggregated_path <- paste0(expr_dir, "/aggregatedY.RData")
+
+if(file.exists(aggregated_path)){
+  load(aggregated_path)
 }else{
 
-  Y_files <- list.files(paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass",pass,"/files_for_analysis/expression"),full=T)
+  Y_files <- list.files(expr_dir, full=T)
 
   Y_list <- lapply(Y_files, function(file) {
     load(file)
     return(Y)
   })
 
-  Y_full <- do.call(cbind, lapply(Y_list, `[[`, 1))  # combine all Y[[1]] into a matrix
-  tx_full <- unlist(lapply(Y_list, `[[`, 2))        # combine all Y[[2]] into a vector
-  save(Y_full,tx_full,file=paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass",pass,"/files_for_analysis/expression/aggregatedY.RData"))
+  Y_full <- do.call(cbind, lapply(Y_list, `[[`, 1)) # combine all Y[[1]] into a matrix
+  tx_full <- unlist(lapply(Y_list, `[[`, 2)) # combine all Y[[2]] into a vector
+  save(Y_full, tx_full, file=aggregated_path)
 
 }
 
@@ -110,11 +126,9 @@ sum(dat$tx==tx_id)
 
 setwd(reads_dir)
 
-simReads(transcript.file = paste0("/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v38/gencode.v38.transcripts.fa"),
+simReads(transcript.file = txome_fa,
          expression.levels=dat$expr,
          output.prefix=paste0('sim_',id,"_param_row_reads_",param_row_reads),
-         read.length = read_length,         
-         library.size = library_size,     
-         paired.end = paired_end)    
-
-
+         read.length = read_length,
+         library.size = library_size,
+         paired.end = paired_end)
