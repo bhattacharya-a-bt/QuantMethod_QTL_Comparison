@@ -15,10 +15,6 @@ gene_num <- as.numeric(args[1])
 pass <- as.numeric(args[2])
 geno_pass <- as.numeric(args[3])
 
-# gene_num=1
-# pass=1
-# geno_pass=1
-
 ####################################################################################
 # load dependencies silently
 ####################################################################################
