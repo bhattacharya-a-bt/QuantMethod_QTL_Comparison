@@ -6,6 +6,7 @@ DATA_DIR="/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/ldref/1KG"
 OUT_DIR="/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass${GENO_PASS}/files_for_analysis/1KG_vcf" # output directory
 MAF_THRESH=0.05 # minor allele frequency threshold
 SAMPLE_FILE="/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass${GENO_PASS}/files_for_analysis/1kg_eur_500_sample_ids" # output from prior_s01
+OUT_FILE="genos_1kg_eur_500_snps_maf_0.01" # basename of output file
 
 mkdir -p ${OUT_DIR}
 
@@ -20,7 +21,7 @@ do
    --maf ${MAF_THRESH} \
    --snps-only \
    --allow-extra-chr 0 \
-   --out genos_1kg_eur_500_snps_maf_0.01_chr${chr}
+   --out ${OUT_FILE}_chr${chr}
 
 done
 
@@ -29,7 +30,7 @@ done
 
 for chr in {1..22}
 do
-   bgzip genos_1kg_eur_500_snps_maf_0.01_chr${chr}.vcf
+   bgzip ${OUT_FILE}_chr${chr}.vcf
 
 done
 
@@ -38,7 +39,7 @@ done
 
 for chr in {1..22}
 do
-   tabix -p vcf genos_1kg_eur_500_snps_maf_0.01_chr${chr}.vcf.gz
+   tabix -p vcf ${OUT_FILE}_chr${chr}.vcf.gz
 
 done
 
