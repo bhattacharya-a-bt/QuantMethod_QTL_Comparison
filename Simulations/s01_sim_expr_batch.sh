@@ -20,6 +20,7 @@ GENO_PASS=$2
 GENES_PER_JOB=$3
 TOTAL_GENES=$4
 TOTAL_JOBS=$5
+BASE_DIR=$6
 
 JOB_INDEX=${LSB_JOBINDEX}
 START_INDEX=$(( (JOB_INDEX - 1) * GENES_PER_JOB + 1 ))
@@ -31,7 +32,7 @@ fi
 
 for ((i=START_INDEX; i<=END_INDEX; i++))
 do
-    Rscript /rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass${PASS}/scripts/s01_sim_expr.R $i ${PASS} ${GENO_PASS}
+    Rscript /rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass${PASS}/scripts/s01_sim_expr.R $i ${PASS} ${GENO_PASS} ${BASE_DIR}
 done
 
 # unload modules
