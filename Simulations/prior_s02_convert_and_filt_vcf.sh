@@ -2,7 +2,7 @@ module load plink/2.00-alpha
 module load tabix/0.2.6
 
 GENO_PASS=1
-DATA_DIR="/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/ldref/1KG"
+DATA_FILE="/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/ldref/1KG/all_hg38" # path to plink pfile
 OUT_DIR="/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass${GENO_PASS}/files_for_analysis/1KG_vcf" # output directory
 MAF_THRESH=0.05 # minor allele frequency threshold
 SAMPLE_FILE="/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass${GENO_PASS}/files_for_analysis/1kg_eur_500_sample_ids" # output from prior_s01
@@ -14,7 +14,7 @@ cd ${OUT_DIR}
 
 for chr in {1..22}
 do
-   plink2 --pfile ${DATA_DIR}/all_hg38 \
+   plink2 --pfile ${DATA_FILE} \
    --keep ${SAMPLE_FILE} \
    --chr ${chr} \
    --recode vcf \
