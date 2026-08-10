@@ -1,11 +1,24 @@
 #!/usr/bin/env Rscript
 
 ##################################################################################
+# USER CONFIGURATION - edit these paths, or set the matching environment variables
+##################################################################################
+# r_lib_path     extra R library path; "" to use the default .libPaths()
+# coloc_out_dir  colocalization results directory written by r1_s05_coloc.R;
+#                per-gene files live in '<tissue>/' and the combined hits file
+#                is written at the top level
+r_lib_path    <- Sys.getenv("R_LIB_PATH",    "")
+coloc_out_dir <- Sys.getenv("COLOC_OUT_DIR", "/path/to/GTEx_v8/requants/coloc_results")
+##################################################################################
+
+##################################################################################
 # change library to local
 ##################################################################################
-myPaths <- .libPaths()
-myPaths <- c("/rsrch5/home/epi/sthead/R/x86_64-pc-linux-gnu-library/4.3",myPaths)
-.libPaths(myPaths)
+if (nchar(r_lib_path) > 0) {
+  myPaths <- .libPaths()
+  myPaths <- c(r_lib_path,myPaths)
+  .libPaths(myPaths)
+}
 
 ####################################################################################
 # load dependencies
@@ -34,7 +47,7 @@ pheno_name_vec <- c("BreastCancer",
   "Schizophrenia",
   "BipolarDisorder")
 
-setwd(paste0("/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/coloc_results/",tissue))
+setwd(file.path(coloc_out_dir,tissue))
 
 files <- list.files()
 
@@ -70,7 +83,7 @@ if (nrow(dat) > 0) {
   output_filename <- paste0('colocalization_results_', tissue, '_', annot,"_",quant,"_",pheno_name, '.tsv')
   
   fwrite(dat,
-         file.path('/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/coloc_results', output_filename),
+         file.path(coloc_out_dir, output_filename),
          row.names = FALSE,
          quote = FALSE,
          sep = '\t')

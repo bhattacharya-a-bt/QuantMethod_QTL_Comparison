@@ -6,8 +6,13 @@
 # Date: 2025-11-22
 ################################################################################
 
-# Base directory
-base_dir <- "/rsrch5/home/epi/stbresnahan/bhattacharya_lab/data/GTEx_v8/requants"
+################################################################################
+# USER CONFIGURATION - edit this path, or set the matching environment variable
+################################################################################
+# base_dir  requantification output root; holds one subdirectory per annotation
+#           and receives the file_check_report.txt written at the end
+base_dir <- Sys.getenv("REQUANT_DIR", "/path/to/GTEx_v8/requants")
+################################################################################
 
 # Annotation versions to check
 annotations <- c("GENCODE_v27", "GENCODE_v38", "GENCODE_v45", "Ensembl")

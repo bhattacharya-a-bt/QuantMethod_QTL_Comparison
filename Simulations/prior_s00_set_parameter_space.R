@@ -6,17 +6,17 @@
 
 ## ---- R library setup ----
 # local R library path; set to "" to skip and use default .libPaths()
-r_lib_path <- "/rsrch5/home/epi/sthead/R/x86_64-pc-linux-gnu-library/4.3"
+r_lib_path <- Sys.getenv("R_LIB_PATH", "")
 
 ## ---- input reference files ----
 # path to the GENCODE transcripts FASTA
-transcripts_fasta <- "/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v38/gencode.v38.transcripts.fa"
+transcripts_fasta <- Sys.getenv("TRANSCRIPTS_FASTA", "/path/to/GenomicReferences/txome/gencode_v38/gencode.v38.transcripts.fa")
 # Path to the GENCODE annotation GTF
-gtf_file <- "/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v38/gencode.v38.annotation.gtf"
+gtf_file <- Sys.getenv("GTF_FILE", "/path/to/GenomicReferences/txome/gencode_v38/gencode.v38.annotation.gtf")
 
 ## ---- output directory ----
 # base scratch/output directory
-out_base_dir <- "/rsrch5/scratch/epi/sthead/GTEx_gencode_comp"
+out_base_dir <- Sys.getenv("BASE_DIR", "/path/to/scratch/GTEx_gencode_comp")
 
 ## ---- static parameters ----
 pass <- 2 # run pass (see readme)

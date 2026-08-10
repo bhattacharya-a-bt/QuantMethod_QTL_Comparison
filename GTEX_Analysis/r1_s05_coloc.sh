@@ -1,5 +1,15 @@
 #!/bin/bash
 
+# ============================ USER CONFIGURATION ============================
+# Edit the defaults below, or export these variables before submitting the job.
+#   PSPACE      parameter space file (columns: annot quant tissue), one row per
+#               array index
+#   SCRIPT_DIR  directory containing r1_s05_coloc.R
+# r1_s05_coloc.R has its own configuration block for its input/output paths.
+# ============================================================================
+PSPACE="${PSPACE:-/path/to/GTEx_v8/requants/requant_paramspace.txt}"
+SCRIPT_DIR="${SCRIPT_DIR:-/path/to/QuantMethod_QTL_Comparison/GTEX_Analysis}"
+
 echo "***** HPC job info ***** "
 echo "Job ID: $LSB_JOBID"
 echo "Job index within array: $LSB_JOBINDEX"
@@ -19,8 +29,6 @@ module load R/4.3.1
 
 # assign analysis parameters
 
-PSPACE="/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/requant_paramspace.txt"
-
 read -r annot quant tissue < <(awk -v row="$LSB_JOBINDEX" 'NR==row {print $1, $2, $3}' ${PSPACE})
 
 echo "annot=$annot"
@@ -33,7 +41,7 @@ echo "n_bins=$4"
 echo "bin_index=$5"
 
 echo "Running colocalization script..."
-Rscript /rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/Scripts/r1_s05_coloc.R ${annot} ${quant} ${tissue} $1 $2 $3 $4 $5
+Rscript ${SCRIPT_DIR}/r1_s05_coloc.R ${annot} ${quant} ${tissue} $1 $2 $3 $4 $5
 
 # unload modules
 module unload R

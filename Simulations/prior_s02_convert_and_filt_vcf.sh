@@ -1,12 +1,16 @@
 module load plink/2.00-alpha
 module load tabix/0.2.6
 
-GENO_PASS=1
-DATA_FILE="/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/ldref/1KG/all_hg38" # path to plink pfile
-OUT_DIR="/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass${GENO_PASS}/files_for_analysis/1KG_vcf" # output directory
-MAF_THRESH=0.05 # minor allele frequency threshold
-SAMPLE_FILE="/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass${GENO_PASS}/files_for_analysis/1kg_eur_500_sample_ids" # output from prior_s01
-OUT_FILE="genos_1kg_eur_500_snps_maf_0.01" # basename of output file
+# ============================ USER CONFIGURATION ============================
+# Edit the defaults below, or export these variables before running.
+# ============================================================================
+GENO_PASS="${GENO_PASS:-1}"
+BASE_DIR="${BASE_DIR:-/path/to/scratch/GTEx_gencode_comp}" # base project directory; pass number appended below
+DATA_FILE="${DATA_FILE:-/path/to/GenomicReferences/ldref/1KG/all_hg38}" # path to plink pfile
+OUT_DIR="${OUT_DIR:-${BASE_DIR}/pass${GENO_PASS}/files_for_analysis/1KG_vcf}" # output directory
+MAF_THRESH="${MAF_THRESH:-0.05}" # minor allele frequency threshold
+SAMPLE_FILE="${SAMPLE_FILE:-${BASE_DIR}/pass${GENO_PASS}/files_for_analysis/1kg_eur_500_sample_ids}" # output from prior_s01
+OUT_FILE="${OUT_FILE:-genos_1kg_eur_500_snps_maf_0.01}" # basename of output file
 
 mkdir -p ${OUT_DIR}
 

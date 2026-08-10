@@ -1,11 +1,25 @@
 #!/usr/bin/env Rscript
 
 ########################################################################
+# USER CONFIGURATION - edit these, or set the matching environment variables
+########################################################################
+# r_lib_path   extra R library path; "" to use the default .libPaths()
+# base_dir     base project directory; the pass number is appended internally
+# cache_pass   pass whose 'files_for_analysis/tximeta' directory is reused as
+#              the tximeta cache, regardless of the pass being processed
+r_lib_path <- Sys.getenv("R_LIB_PATH", "")
+base_dir   <- Sys.getenv("BASE_DIR",   "/path/to/scratch/GTEx_gencode_comp")
+cache_pass <- Sys.getenv("CACHE_PASS", "1")
+########################################################################
+
+########################################################################
 # change library to local
 ########################################################################
-myPaths <- .libPaths()
-myPaths <- c("/rsrch5/home/epi/sthead/R/x86_64-pc-linux-gnu-library/4.3",myPaths)
-.libPaths(myPaths)
+if (nchar(r_lib_path) > 0) {
+  myPaths <- .libPaths()
+  myPaths <- c(r_lib_path,myPaths)
+  .libPaths(myPaths)
+}
 
 ########################################################################
 # parse arguments
@@ -35,7 +49,7 @@ require(edgeR)
 
 ### SALMON
 
-files <- list.files(paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass",pass,"/files_for_analysis/salmon/param_row_reads_",param_row_reads,"_",annot),recursive=T,full.names=T)
+files <- list.files(paste0(base_dir,"/pass",pass,"/files_for_analysis/salmon/param_row_reads_",param_row_reads,"_",annot),recursive=T,full.names=T)
 tmp <- grep("quant.sf",files)
 files <- files[tmp]
 if(length(files)>498){
@@ -47,48 +61,48 @@ files = keep,
 names = basename(dirname(keep))
 )
 
-# set cachedir to pass1 regardless of current pass
-cache_dir <- paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass1/files_for_analysis/tximeta")
+# set cachedir to cache_pass regardless of current pass
+cache_dir <- paste0(base_dir,"/pass",cache_pass,"/files_for_analysis/tximeta")
 if (!dir.exists(cache_dir)) {
   dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE)
 }
 
 setTximetaBFC(cache_dir)
-# gtf <- "/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v45/gencode.v45.annotation.gtf"
-# makeLinkedTxome(indexDir = "/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode.v45.salmon_index/gencode_v45",
+# gtf <- "/path/to/GenomicReferences/txome/gencode_v45/gencode.v45.annotation.gtf"
+# makeLinkedTxome(indexDir = "/path/to/GenomicReferences/txome/gencode.v45.salmon_index/gencode_v45",
 #                 source = "GENCODEv45",
 #                 organism = "Homo sapiens",
 #                 genome = "GRCh38",
 #                 release = "p14",
-#                 fasta = "/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v45/GCA_000001405.15_GRCh38_no_alt_analysis_set_cleaned_ready_for_salmon_gencode_v45.fasta",
+#                 fasta = "/path/to/GenomicReferences/txome/gencode_v45/GCA_000001405.15_GRCh38_no_alt_analysis_set_cleaned_ready_for_salmon_gencode_v45.fasta",
 #                 gtf = gtf,
 #                 write = T)
 
-# gtf <- "/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v38/gencode.v38.annotation.gtf"
-# makeLinkedTxome(indexDir = "/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode.v38.salmon_index",
+# gtf <- "/path/to/GenomicReferences/txome/gencode_v38/gencode.v38.annotation.gtf"
+# makeLinkedTxome(indexDir = "/path/to/GenomicReferences/txome/gencode.v38.salmon_index",
 #                 source = "GENCODEv38",
 #                 organism = "Homo sapiens",
 #                 genome = "GRCh38",
 #                 release = "p14",
-#                 fasta = "/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v38/GCA_000001405.15_GRCh38_no_alt_analysis_set_cleaned_ready_for_salmon_gencode_v38.fasta",
+#                 fasta = "/path/to/GenomicReferences/txome/gencode_v38/GCA_000001405.15_GRCh38_no_alt_analysis_set_cleaned_ready_for_salmon_gencode_v38.fasta",
 #                 gtf = gtf,
 #                 write = T)
-# gtf <- "/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v27/gencode.v27.annotation.gtf"
-# makeLinkedTxome(indexDir = "/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v27/salmon/gencode_v27",
+# gtf <- "/path/to/GenomicReferences/txome/gencode_v27/gencode.v27.annotation.gtf"
+# makeLinkedTxome(indexDir = "/path/to/GenomicReferences/txome/gencode_v27/salmon/gencode_v27",
 #                 source = "GENCODEv27",
 #                 organism = "Homo sapiens",
 #                 genome = "GRCh38",
 #                 release = "p14",
-#                 fasta = "/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v27/GCA_000001405.15_GRCh38_no_alt_analysis_set_cleaned_ready_for_salmon_gencode_v27.fasta",
+#                 fasta = "/path/to/GenomicReferences/txome/gencode_v27/GCA_000001405.15_GRCh38_no_alt_analysis_set_cleaned_ready_for_salmon_gencode_v27.fasta",
 #                 gtf = gtf,
 #                 write = T)
-# gtf <- "/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass2/files_for_analysis/subset_gtf/gencode.sub.annotation.gtf"
-# makeLinkedTxome(indexDir = "/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass2/files_for_analysis/subset_gtf/index",
+# gtf <- "/path/to/scratch/GTEx_gencode_comp/pass2/files_for_analysis/subset_gtf/gencode.sub.annotation.gtf"
+# makeLinkedTxome(indexDir = "/path/to/scratch/GTEx_gencode_comp/pass2/files_for_analysis/subset_gtf/index",
 #                 source = "GENCODEv38_sub",
 #                 organism = "Homo sapiens",
 #                 genome = "GRCh38",
 #                 release = "p14",
-#                 fasta = "/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass2/files_for_analysis/subset_gtf/GCA_000001405.15_GRCh38_no_alt_analysis_set.fasta",
+#                 fasta = "/path/to/scratch/GTEx_gencode_comp/pass2/files_for_analysis/subset_gtf/GCA_000001405.15_GRCh38_no_alt_analysis_set.fasta",
 #                 gtf = gtf,
 #                 write = T)
 
@@ -146,7 +160,7 @@ assay(se, "TMM_log2") <- log2(tmm_normalized_tx + 1)
 cat("TMM normalization completed for transcript-level data. Added assays: TMM_normalized, TMM_log2\n")
 
 # Save outputs
-output_dir <- paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass",pass,"/files_for_analysis/quants")
+output_dir <- paste0(base_dir,"/pass",pass,"/files_for_analysis/quants")
 if (!dir.exists(output_dir)) {
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 }
@@ -163,12 +177,12 @@ cat("Available assays in transcript-level object:", names(assays(se)), "\n")
 
 annotation <- annot
 
-output_dir <- paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass",pass,"/files_for_analysis/quants")
+output_dir <- paste0(base_dir,"/pass",pass,"/files_for_analysis/quants")
 
 library(GenomicRanges)
 library(edgeR)
 
-se <- readRDS(paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass",pass,"/files_for_analysis/star_alignments/param_row_reads_",param_row_reads,"/",annotation,".RDS"))
+se <- readRDS(paste0(base_dir,"/pass",pass,"/files_for_analysis/star_alignments/param_row_reads_",param_row_reads,"/",annotation,".RDS"))
 
 counts <- se$counts$counts
 annot  <- se$counts$annotation

@@ -1,3 +1,13 @@
+####################################################################################
+# USER CONFIGURATION - edit these, or set the matching environment variables
+####################################################################################
+# sim_results_dir  directory holding the per-chromosome simulation result files
+#                  ('eqtl_res_with_true_beta_chr<N>.RData' from s10)
+# figures_dir      output directory for the PDF written at the end
+sim_results_dir <- Sys.getenv("SIM_RESULTS_DIR", "/path/to/GTEx_GENCODE_Comp/5_simulations/results/pass2")
+figures_dir     <- Sys.getenv("FIGURES_DIR",     "/path/to/GTEx_GENCODE_Comp/Manuscript/Figures/r1")
+####################################################################################
+
 library(data.table)
 library(ggplot2)
 library(RColorBrewer)
@@ -16,7 +26,7 @@ library(UpSetR)
 
 dat <- {}
 for(chr in 1:22){
-  load(paste0("/Users/sthead/OneDrive - Inside MD Anderson/Bhattacharya,Arjun's files - GTEx GENCODE Comp/5_simulations/results/pass2/eqtl_res_with_true_beta_chr",chr,".RData"))
+  load(file.path(sim_results_dir, paste0("eqtl_res_with_true_beta_chr", chr, ".RData")))
   out <- data.frame(out)
   out$is_qtl <- lengths(out$transcript_id) > 0
   out$gene_trim <-sub("\\..*$", "", out$phe_id)
@@ -416,7 +426,7 @@ fin_fig <- cowplot::plot_grid(
   label_fontface = "bold")
 
 ggsave(plot = fin_fig,
-       filename = "/Users/sthead/OneDrive - Inside MD Anderson/Bhattacharya,Arjun's files - GTEx GENCODE Comp/Manuscript/Figures/r1/r1_fig3_sims.pdf",
+       filename = file.path(figures_dir, "r1_fig3_sims.pdf"),
        height = 6,
        width = 8)
 

@@ -1,4 +1,15 @@
 
+####################################################################################
+# USER CONFIGURATION - edit these, or set the matching environment variables
+####################################################################################
+# results_dir  directory holding the aggregated result files read below
+#              (r1_aggregated_eGene_lists.RDS, r1_aggregated_TWAS_passR2.RDS,
+#              N_GTEx.tsv)
+# figures_dir  output directory for the PDF written at the end
+results_dir <- Sys.getenv("RESULTS_DIR", "/path/to/GTEx_GENCODE_Comp/3_results")
+figures_dir <- Sys.getenv("FIGURES_DIR", "/path/to/GTEx_GENCODE_Comp/Manuscript/Figures/r1")
+####################################################################################
+
 library(dplyr)
 library(tidyr)
 library(purrr)
@@ -7,9 +18,9 @@ library(paletteer)
 library(data.table)
 library(cowplot)
 
-# load data for for top row 
+# load data for for top row
 
-dat_sub <- readRDS("/Users/sthead/OneDrive - Inside MD Anderson/Bhattacharya,Arjun's files - GTEx GENCODE Comp/3_results/r1_aggregated_eGene_lists.RDS")
+dat_sub <- readRDS(file.path(results_dir, "r1_aggregated_eGene_lists.RDS"))
 
 dat_sub$Annotation <- factor(dat_sub$Annotation,levels=c("GENCODE_v27","GENCODE_v38","GENCODE_v45","Ensembl"),
                              labels=c("GENCODEv27","GENCODEv38","GENCODEv45","Ensembl"))
@@ -104,7 +115,7 @@ gg_1b <- ggplot(overlap_prop,
 
 # figure 1d
 
-N_GTEx <- read.delim("~/Library/CloudStorage/OneDrive-InsideMDAnderson/Bhattacharya,Arjun's files - GTEx GENCODE Comp/3_results/N_GTEx.tsv")
+N_GTEx <- read.delim(file.path(results_dir, "N_GTEx.tsv"))
 
 N_GTEx$Tissue[N_GTEx$Tissue=="Brain_Spinal_cord_cervical_c-1"] <- "Brain_Spinal_cord_cervical_c_1"
 N_GTEx$Tissue[N_GTEx$Tissue=="Cells_EBV-transformed_lymphocytes"] <- "Cells_EBV_transformed_lymphocytes"
@@ -228,7 +239,7 @@ gg_1a <- ggplot(overlap_prop,
 
 # figure 1c
 
-N_GTEx <- read.delim("~/Library/CloudStorage/OneDrive-InsideMDAnderson/Bhattacharya,Arjun's files - GTEx GENCODE Comp/3_results/N_GTEx.tsv")
+N_GTEx <- read.delim(file.path(results_dir, "N_GTEx.tsv"))
 
 N_GTEx$Tissue[N_GTEx$Tissue=="Brain_Spinal_cord_cervical_c-1"] <- "Brain_Spinal_cord_cervical_c_1"
 N_GTEx$Tissue[N_GTEx$Tissue=="Cells_EBV-transformed_lymphocytes"] <- "Cells_EBV_transformed_lymphocytes"
@@ -289,7 +300,7 @@ gg_1c <- ggplot(plotdat,
 # bottom row (predicted TWAS genes)
 
 
-dat <- readRDS("/Users/sthead/OneDrive - Inside MD Anderson/Bhattacharya,Arjun's files - GTEx GENCODE Comp/3_results/r1_aggregated_TWAS_passR2.RDS")
+dat <- readRDS(file.path(results_dir, "r1_aggregated_TWAS_passR2.RDS"))
 colnames(dat)[colnames(dat)=="tissue"] <- "Tissue"
 colnames(dat)[colnames(dat)=="annot"] <- "Annotation"
 colnames(dat)[colnames(dat)=="quant"] <- "Method"
@@ -381,7 +392,7 @@ gg_1b_bottom <- ggplot(overlap_prop,
 
 # figure 1d
 
-N_GTEx <- read.delim("~/Library/CloudStorage/OneDrive-InsideMDAnderson/Bhattacharya,Arjun's files - GTEx GENCODE Comp/3_results/N_GTEx.tsv")
+N_GTEx <- read.delim(file.path(results_dir, "N_GTEx.tsv"))
 
 N_GTEx$Tissue[N_GTEx$Tissue=="Brain_Spinal_cord_cervical_c-1"] <- "Brain_Spinal_cord_cervical_c_1"
 N_GTEx$Tissue[N_GTEx$Tissue=="Cells_EBV-transformed_lymphocytes"] <- "Cells_EBV_transformed_lymphocytes"
@@ -509,7 +520,7 @@ gg_1a_bottom <- ggplot(overlap_prop,
 
 # figure 1c
 
-N_GTEx <- read.delim("~/Library/CloudStorage/OneDrive-InsideMDAnderson/Bhattacharya,Arjun's files - GTEx GENCODE Comp/3_results/N_GTEx.tsv")
+N_GTEx <- read.delim(file.path(results_dir, "N_GTEx.tsv"))
 
 N_GTEx$Tissue[N_GTEx$Tissue=="Brain_Spinal_cord_cervical_c-1"] <- "Brain_Spinal_cord_cervical_c_1"
 N_GTEx$Tissue[N_GTEx$Tissue=="Cells_EBV-transformed_lymphocytes"] <- "Cells_EBV_transformed_lymphocytes"
@@ -580,7 +591,7 @@ fin_fig <- cowplot::plot_grid(
 )
 
 ggsave(
-  filename = "/Users/sthead/OneDrive - Inside MD Anderson/Bhattacharya,Arjun's files - GTEx GENCODE Comp/Manuscript/Figures/r1/r1_sfig2_discordance_plot_all_annots_and_methods.pdf",
+  filename = file.path(figures_dir, "r1_sfig2_discordance_plot_all_annots_and_methods.pdf"),
   plot = fin_fig,
   width = 11,    
   height = 9,     

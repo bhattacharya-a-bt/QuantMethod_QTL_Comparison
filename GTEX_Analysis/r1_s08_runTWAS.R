@@ -1,11 +1,35 @@
 #!/usr/bin/env Rscript
 
 ##################################################################################
+# USER CONFIGURATION - edit these paths, or set the matching environment variables
+##################################################################################
+# r_lib_path         extra R library path; "" to use the default .libPaths()
+# twas_models_file   aggregated, R2-filtered TWAS model table (RDS); one row per
+#                    tissue/annot/quant combination
+# gwas_dir           directory holding the munged GWAS summary statistics
+# chain_file         hg19 -> hg38 liftover chain (only used if liftoverTo38=TRUE)
+# geno_plink_prefix  PLINK bfile prefix (no extension) for the GTEx genotypes
+# twas_weights_dir   per-gene SNP weights written by r1_s06_trainTWAS.R
+# twas_out_dir       output directory; results are written to '<tissue>/<annot>/'
+# temp_base_dir      scratch directory for per-gene temporary files
+r_lib_path        <- Sys.getenv("R_LIB_PATH",        "")
+twas_models_file  <- Sys.getenv("TWAS_MODELS_FILE",  "/path/to/GTEx_v8/requants/twas_results/r1_aggregated_TWAS_passR2.RDS")
+gwas_dir          <- Sys.getenv("GWAS_DIR",          "/path/to/munged_GWAS")
+chain_file        <- Sys.getenv("CHAIN_FILE",        "/path/to/GenomicReferences/liftover/hg19ToHg38.over.chain")
+geno_plink_prefix <- Sys.getenv("GENO_PLINK_PREFIX", "/path/to/scratch/GTEx_gencode_comp/GTEx_838_v8_maf0.01_autosomes_unrelated")
+twas_weights_dir  <- Sys.getenv("TWAS_WEIGHTS_DIR",  "/path/to/scratch/GTEx_gencode_comp/requant_analyses/TWAS_weights")
+twas_out_dir      <- Sys.getenv("TWAS_OUT_DIR",      "/path/to/GTEx_v8/requants/twas_results")
+temp_base_dir     <- Sys.getenv("TEMP_BASE_DIR",     "/path/to/scratch/tempTWAS")
+##################################################################################
+
+##################################################################################
 # change library to local
 ##################################################################################
-myPaths <- .libPaths()
-myPaths <- c("/rsrch5/home/epi/sthead/R/x86_64-pc-linux-gnu-library/4.3",myPaths)
-.libPaths(myPaths)
+if (nchar(r_lib_path) > 0) {
+  myPaths <- .libPaths()
+  myPaths <- c(r_lib_path,myPaths)
+  .libPaths(myPaths)
+}
 
 ####################################################################################
 # load dependencies
@@ -27,7 +51,7 @@ liftoverTo38 <- as.logical(args[4])
 nbins <- as.integer(args[5])
 bin <- as.integer(args[6])
 
-run_dat <- readRDS("/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/twas_results/r1_aggregated_TWAS_passR2.RDS")
+run_dat <- readRDS(twas_models_file)
 
 run_dat$annot[run_dat$annot=="GENCODE_V27"] <- "GENCODE_v27"
 run_dat$annot[run_dat$annot=="GENCODE_V38"] <- "GENCODE_v38"
@@ -44,11 +68,8 @@ index_start <- (bin - 1) * chunk + 1
 index_stop <- min(index_start + chunk - 1, total_files)
 
 # GWAS file with their names for output
-gwas_file <- file.path('/rsrch5/home/epi/bhattacharya_lab/data/munged_GWAS',
+gwas_file <- file.path(gwas_dir,
                    c(gwas))
-
-# chain file for liftover
-chain_file <- '/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/liftover/hg19ToHg38.over.chain'
 
 # function to perform liftover using R liftOver package
 liftover_gwas <- function(gwas_data, chain_file) {
@@ -100,7 +121,7 @@ liftover_gwas <- function(gwas_data, chain_file) {
 }
 
 # GTEx SNP reference file
-gtex_snpfile = '/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/GTEx_838_v8_maf0.01_autosomes_unrelated'
+gtex_snpfile = geno_plink_prefix
 
 cat("Processing GWAS:", gwas_name, "\n")
 cat("Processing array index:", bin, "covering files", index_start, "to", index_stop, "\n")
@@ -162,7 +183,7 @@ for (i in index_start:index_stop) {
   cat("Processing TWAS model", index, "of", total_files, "\n")
   
   gene <- gene_list[i]
-  twas_file <- paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/requant_analyses/TWAS_weights/",tissue,"_",annot,"_",quant,"/",gene,"_TWAS.RDS")  
+  twas_file <- file.path(twas_weights_dir,paste0(tissue,"_",annot,"_",quant),paste0(gene,"_TWAS.RDS"))
   # Check if file exists
   if (!file.exists(twas_file)) {
     cat("  TWAS file not found:", twas_file, "\n")
@@ -186,8 +207,7 @@ for (i in index_start:index_stop) {
   twas_model$CHRPOS <- paste(twas_model$Chromosome, twas_model$Position, sep = ':')
   
   # create temporary folder
-  tempfolder <- file.path('/rsrch5/home/epi/sthead/',
-                          'tempTWAS',
+  tempfolder <- file.path(temp_base_dir,
                           paste0('gene', i, '_', gene, '_', gwas_name, "_",tissue,"_",annot,"_",quant))
   dir.create(tempfolder, recursive = TRUE, showWarnings = FALSE)
   
@@ -295,7 +315,7 @@ for (i in index_start:index_stop) {
     
     
     # write out individual result
-    dir_out <- paste0("/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/twas_results/",tissue,"/",annot)
+    dir_out <- file.path(twas_out_dir,tissue,annot)
     dir.create(dir_out, recursive = TRUE)
     
     data.table::fwrite(result_row,

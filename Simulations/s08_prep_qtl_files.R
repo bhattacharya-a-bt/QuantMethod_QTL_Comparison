@@ -1,11 +1,24 @@
 #!/usr/bin/env Rscript
 
 ###################################################################
+# USER CONFIGURATION - edit these, or set the matching env variables
+###################################################################
+# r_lib_path   extra R library path; "" to use the default .libPaths()
+# base_dir     base project directory; the pass number is appended internally
+# annotations  annotation versions to build BED files for
+r_lib_path  <- Sys.getenv("R_LIB_PATH", "")
+base_dir    <- Sys.getenv("BASE_DIR",   "/path/to/scratch/GTEx_gencode_comp")
+annotations <- c("gencode_v38","gencode_v27","gencode_v45","gencode_v38_sub")
+###################################################################
+
+###################################################################
 # change library to local
 ###################################################################
-myPaths <- .libPaths()
-myPaths <- c("/rsrch5/home/epi/sthead/R/x86_64-pc-linux-gnu-library/4.3",myPaths)
-.libPaths(myPaths)
+if (nchar(r_lib_path) > 0) {
+  myPaths <- .libPaths()
+  myPaths <- c(r_lib_path,myPaths)
+  .libPaths(myPaths)
+}
 
 ####################################################################################
 # load dependencies
@@ -41,9 +54,9 @@ annot <- as.character(args[3])
 ## SALMON
 
 # loop through annotations
-for(annot in c("gencode_v38","gencode_v27","gencode_v45","gencode_v38_sub")){
+for(annot in annotations){
   cat(paste0(annot," \n"))
-  se <- readRDS(paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass",pass,"/files_for_analysis/quants/param_row_reads_",param_row_reads,"_salmon_",annot,"_gene.RDS"))
+  se <- readRDS(paste0(base_dir,"/pass",pass,"/files_for_analysis/quants/param_row_reads_",param_row_reads,"_salmon_",annot,"_gene.RDS"))
   rm <- which(colnames(se)=="HG00136")
   if(length(rm)==1){
     se <- se[,-rm]
@@ -53,7 +66,7 @@ for(annot in c("gencode_v38","gencode_v27","gencode_v45","gencode_v38_sub")){
 
   # Compute proportion of samples > 0.1 TPM
   prop_expr_gene <- rowMeans(tpm_gene > 0.1)
-  write.table(prop_expr_gene,quote=F,row.names=T,col.names=F,sep="\t",file=paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass",pass,"/files_for_analysis/quants/param_row_reads_",param_row_reads,"_salmon_",annot,"_prop_samples_ge_01TPM.txt"))
+  write.table(prop_expr_gene,quote=F,row.names=T,col.names=F,sep="\t",file=paste0(base_dir,"/pass",pass,"/files_for_analysis/quants/param_row_reads_",param_row_reads,"_salmon_",annot,"_prop_samples_ge_01TPM.txt"))
 
   # filter genes
   se.filt <- se[prop_expr_gene >= 0.25, ]
@@ -68,7 +81,7 @@ for(annot in c("gencode_v38","gencode_v27","gencode_v45","gencode_v38_sub")){
     strand = as.character(strand(gr))
   )
 
-  out_dir <- paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass",pass,"/files_for_analysis/bed_files/param_row_reads_",param_row_reads)
+  out_dir <- paste0(base_dir,"/pass",pass,"/files_for_analysis/bed_files/param_row_reads_",param_row_reads)
 
   if(!dir.exists(out_dir)){
     dir.create(out_dir,recursive=T)
@@ -95,9 +108,9 @@ for(annot in c("gencode_v38","gencode_v27","gencode_v45","gencode_v38_sub")){
 ## FEATURECOUNTS
 
 # loop through annotations
-for(annot in c("gencode_v38","gencode_v27","gencode_v45","gencode_v38_sub")){
+for(annot in annotations){
   cat(paste0(annot," \n"))
-  se <- readRDS(paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass",pass,"/files_for_analysis/quants/param_row_reads_",param_row_reads,"_featureCounts_",annot,"_gene.RDS"))
+  se <- readRDS(paste0(base_dir,"/pass",pass,"/files_for_analysis/quants/param_row_reads_",param_row_reads,"_featureCounts_",annot,"_gene.RDS"))
 
   rm <- which(colnames(se)=="HG00136")
   if(length(rm)==1){
@@ -116,7 +129,7 @@ for(annot in c("gencode_v38","gencode_v27","gencode_v45","gencode_v38_sub")){
 
   # Compute proportion of samples > 0.1 TPM
   prop_expr_gene <- rowMeans(tpm_gene > 0.1)
-  write.table(prop_expr_gene,quote=F,row.names=T,col.names=F,sep="\t",file=paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass",pass,"/files_for_analysis/quants/param_row_reads_",param_row_reads,"_featureCounts_",annot,"_prop_samples_ge_01TPM.txt"))
+  write.table(prop_expr_gene,quote=F,row.names=T,col.names=F,sep="\t",file=paste0(base_dir,"/pass",pass,"/files_for_analysis/quants/param_row_reads_",param_row_reads,"_featureCounts_",annot,"_prop_samples_ge_01TPM.txt"))
 
   # filter genes
   se.filt <- se[prop_expr_gene >= 0.25, ]
@@ -131,7 +144,7 @@ for(annot in c("gencode_v38","gencode_v27","gencode_v45","gencode_v38_sub")){
     strand = as.character(strand(gr))
   )
 
-  out_dir <- paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass",pass,"/files_for_analysis/bed_files/param_row_reads_",param_row_reads)
+  out_dir <- paste0(base_dir,"/pass",pass,"/files_for_analysis/bed_files/param_row_reads_",param_row_reads)
 
   if(!dir.exists(out_dir)){
     dir.create(out_dir,recursive=T)

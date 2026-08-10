@@ -2,8 +2,14 @@
 
 # Usage: ./count_gtex_bams.sh <tissue> <user>
 
-sample_IDs=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/GTEx_v8_sample_attributes.txt
-bamdir=/rsrch3/scratch/reflib/GTEx/SourceFiles/Bam
+# ============================ USER CONFIGURATION ============================
+# Edit the defaults below, or export these variables before running.
+#   sample_IDs  GTEx v8 sample attributes file (tab-delimited; column 1 is the
+#               sample ID, column 3 is the tissue)
+#   bamdir      directory holding the source GTEx BAM files
+# ============================================================================
+sample_IDs="${sample_IDs:-/path/to/GTEx_v8/GTEx_v8_sample_attributes.txt}"
+bamdir="${bamdir:-/path/to/GTEx/SourceFiles/Bam}"
 
 tissue="$1"
 

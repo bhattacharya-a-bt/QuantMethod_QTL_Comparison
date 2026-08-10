@@ -1,11 +1,28 @@
 #!/usr/bin/env Rscript
 
 ##################################################################################
+# USER CONFIGURATION - edit these paths, or set the matching environment variables
+##################################################################################
+# r_lib_path      extra R library path; leave as "" to use the default .libPaths()
+# gene_info_file  Ensembl gene coordinate table (written once by the biomaRt block
+#                 below)
+# polished_dir    'polished' requantification directory; per-annotation
+#                 subdirectories hold '<tissue>_<quant>_gene.RDS'
+# analysis_dir    output directory; the BED is written to '<tissue>/' underneath it
+r_lib_path     <- Sys.getenv("R_LIB_PATH",     "")
+gene_info_file <- Sys.getenv("GENE_INFO_FILE", "/path/to/scratch/GTEx_gencode_comp/ensembl_gene_info.txt")
+polished_dir   <- Sys.getenv("POLISHED_DIR",   "/path/to/GTEx_v8/requants/polished")
+analysis_dir   <- Sys.getenv("ANALYSIS_DIR",   "/path/to/scratch/GTEx_gencode_comp/requant_analyses")
+##################################################################################
+
+##################################################################################
 # change library to local
 ##################################################################################
-myPaths <- .libPaths()
-myPaths <- c("/rsrch5/home/epi/sthead/R/x86_64-pc-linux-gnu-library/4.3",myPaths)
-.libPaths(myPaths)
+if (nchar(r_lib_path) > 0) {
+  myPaths <- .libPaths()
+  myPaths <- c(r_lib_path,myPaths)
+  .libPaths(myPaths)
+}
 
 ####################################################################################
 # load dependencies
@@ -42,19 +59,19 @@ tissue <- as.character(args[3])
 #   ),
 #   mart = mart
 # )
-# write.table(all_genes,file="/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/ensembl_gene_info.txt",
+# write.table(all_genes,file=gene_info_file,
 #   sep="\t",quote=F,row.names=F,col.names=T)
 
 ####################################################################################
 # begin code
 ####################################################################################
 
-gene_info <- data.frame(fread("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/ensembl_gene_info.txt"))
+gene_info <- data.frame(fread(gene_info_file))
 
-setwd(paste0('/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/polished/',annot))
+setwd(file.path(polished_dir,annot))
 t = paste0(tissue,"_",quant,"_gene.RDS")
 
-out_file <- paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/requant_analyses/",tissue,"/",annot,"_",quant,".v8.normalized_expression.bed")
+out_file <- file.path(analysis_dir,tissue,paste0(annot,"_",quant,".v8.normalized_expression.bed"))
 
 print(t)
 all_in = readRDS(t)

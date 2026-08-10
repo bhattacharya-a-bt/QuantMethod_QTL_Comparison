@@ -3,21 +3,46 @@
 #BSUB -n 12
 #BSUB -M 64
 #BSUB -R rusage[mem=64]
-#BSUB -o /rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/logs
-#BSUB -e /rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/logs
+#BSUB -o /path/to/GTEx_v8/requants/logs
+#BSUB -e /path/to/GTEx_v8/requants/logs
 #BSUB -q medium
+
+
+# ============================== USER CONFIGURATION ==============================
+# Edit the defaults below, or export these variables before submitting the job.
+#   SCRATCH_BASE  per-user scratch working directory; raw/, align/, quant/ and
+#                 temp/ subdirectories are created underneath it
+#   DIR_BAM       directory holding the source GTEx BAM files
+#   REQUANT_DIR   requantification output root; per-annotation outputs are
+#                 written to '<REQUANT_DIR>/<VERSION>/<TISSUE>/<method>/'
+#   FC_ANNOT_DIR  directory holding the featureCounts SAF files
+#                 ('<VERSION>_genes.saf', '<VERSION>_transcripts.saf')
+#   TXOME_DIR     root of the per-annotation transcriptome indices/references
+#   TXINDEX_star  STAR genome index directory
+#   CONDA_BIN     path to the conda binary
+#   STAR_BIN_DIR  directory holding the STAR binary, passed to RSEM --star-path
+# The #BSUB -o/-e log paths above must be edited directly: LSF does not expand
+# shell variables in #BSUB directives.
+# ================================================================================
+SCRATCH_BASE="${SCRATCH_BASE:-/path/to/scratch/${USER}/GTEx_v8}"
+DIR_BAM="${DIR_BAM:-/path/to/GTEx/SourceFiles/Bam}"
+REQUANT_DIR="${REQUANT_DIR:-/path/to/GTEx_v8/requants}"
+FC_ANNOT_DIR="${FC_ANNOT_DIR:-${REQUANT_DIR}/fc_annots}"
+TXOME_DIR="${TXOME_DIR:-/path/to/GenomicReferences/txome}"
+TXINDEX_star="${TXINDEX_star:-/path/to/GenomicReferences/star-2.7.4a_GCA_000001405.15_GRCh38_no_alt_analysis_set}"
+CONDA_BIN="${CONDA_BIN:-/path/to/miniforge3/bin/conda}"
+STAR_BIN_DIR="${STAR_BIN_DIR:-/path/to/miniforge3/envs/star-2.7.4a/bin}"
 
 
 ### --- Setup --- ###
 
 source /etc/profile.d/modules.sh
-eval "$(/risapps/rhel8/miniforge3/24.5.0-0/bin/conda shell.bash hook)"
+eval "$(${CONDA_BIN} shell.bash hook)"
 
-cd /rsrch5/scratch/epi/${USER}/GTEx_v8
+cd ${SCRATCH_BASE}
 
 THREADS=12
 LIBID="${FILE%%.*}"
-DIR_BAM=/rsrch3/scratch/reflib/GTEx/SourceFiles/Bam
 
 mkdir -p raw/${TISSUE}
 mkdir -p align/${TISSUE}
@@ -55,8 +80,6 @@ if [ "$ALIGN" = TRUE ]; then
   conda activate star-2.7.4a
   rm -rf temp/${TISSUE}/${LIBID} # delete temp directory (STAR will remake)
 
-  TXINDEX_star=/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/star-2.7.4a_GCA_000001405.15_GRCh38_no_alt_analysis_set
-
   STAR --genomeDir ${TXINDEX_star} \
        --readFilesIn raw/${TISSUE}/${LIBID}_R1.fastq.gz raw/${TISSUE}/${LIBID}_R2.fastq.gz \
        --readFilesCommand zcat --runThreadN ${THREADS} \
@@ -88,11 +111,11 @@ if [ "$FEATURECOUNTS" = TRUE ]; then
   
   for VERSION in GENCODE_v27 GENCODE_v38 GENCODE_v45 Ensembl; do
   
-      fc_out=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/${VERSION}/${TISSUE}/featureCounts
+      fc_out=${REQUANT_DIR}/${VERSION}/${TISSUE}/featureCounts
       mkdir -p $fc_out
-      
+
       featureCounts \
-        -a /rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/fc_annots/${VERSION}_genes.saf \
+        -a ${FC_ANNOT_DIR}/${VERSION}_genes.saf \
         -F SAF \
         -o ${fc_out}/${LIBID}_gene.txt \
         -p \
@@ -101,7 +124,7 @@ if [ "$FEATURECOUNTS" = TRUE ]; then
         -T 12
       
       featureCounts \
-        -a /rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/fc_annots/${VERSION}_transcripts.saf \
+        -a ${FC_ANNOT_DIR}/${VERSION}_transcripts.saf \
         -F SAF \
         -o ${fc_out}/${LIBID}_transcript.txt \
         -p \
@@ -126,15 +149,15 @@ if [ "$RSEM" = TRUE ]; then
   for VERSION in GENCODE_v27 GENCODE_v38 GENCODE_v45 Ensembl; do
   
     declare -A TXINDEX_MAP
-    TXINDEX_MAP[GENCODE_v27]=/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v27_rsem/rsem
-    TXINDEX_MAP[GENCODE_v38]=/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v38_rsem/rsem
-    TXINDEX_MAP[GENCODE_v45]=/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v45_rsem/rsem
-    TXINDEX_MAP[Ensembl]=/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/ensembl_rsem/rsem
-    
+    TXINDEX_MAP[GENCODE_v27]=${TXOME_DIR}/gencode_v27_rsem/rsem
+    TXINDEX_MAP[GENCODE_v38]=${TXOME_DIR}/gencode_v38_rsem/rsem
+    TXINDEX_MAP[GENCODE_v45]=${TXOME_DIR}/gencode_v45_rsem/rsem
+    TXINDEX_MAP[Ensembl]=${TXOME_DIR}/ensembl_rsem/rsem
+
       TXINDEX=${TXINDEX_MAP[$VERSION]}
-  
+
       # Make sure the output directory exists
-      DIR_OUT_RSEM=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/${VERSION}/${TISSUE}/RSEM
+      DIR_OUT_RSEM=${REQUANT_DIR}/${VERSION}/${TISSUE}/RSEM
       mkdir -p ${DIR_OUT_RSEM}
       
       DIR_OUT_RSEM_TEMP=quant/${TISSUE}/${VERSION}/RSEM
@@ -144,7 +167,7 @@ if [ "$RSEM" = TRUE ]; then
       rsem-calculate-expression \
           --star \
           --star-gzipped-read-file \
-          --star-path /risapps/rhel8/miniforge3/24.5.0-0/envs/star-2.7.4a/bin \
+          --star-path ${STAR_BIN_DIR} \
           --strandedness none \
           -p ${THREADS} \
           --no-bam-output \
@@ -174,20 +197,20 @@ fi
 
 if [ "$KALLISTO" = TRUE ]; then
 
-  eval "$(/risapps/rhel8/miniforge3/24.5.0-0/bin/conda shell.bash hook)"
+  eval "$(${CONDA_BIN} shell.bash hook)"
   conda activate kallisto-0.48.0
 
   # Define KALLISTO index paths for each version
   declare -A KALLISTO_INDEX_MAP
-  KALLISTO_INDEX_MAP[GENCODE_v27]="/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v27/kallisto_index/GENCODE_v27"
-  KALLISTO_INDEX_MAP[GENCODE_v38]="/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v38/kallisto_index/GENCODE_v38"
-  KALLISTO_INDEX_MAP[GENCODE_v45]="/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v45/kallisto_index/GENCODE_v45"
-  KALLISTO_INDEX_MAP[Ensembl]="/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/Ensembl/kallisto_index/Ensembl"
+  KALLISTO_INDEX_MAP[GENCODE_v27]="${TXOME_DIR}/gencode_v27/kallisto_index/GENCODE_v27"
+  KALLISTO_INDEX_MAP[GENCODE_v38]="${TXOME_DIR}/gencode_v38/kallisto_index/GENCODE_v38"
+  KALLISTO_INDEX_MAP[GENCODE_v45]="${TXOME_DIR}/gencode_v45/kallisto_index/GENCODE_v45"
+  KALLISTO_INDEX_MAP[Ensembl]="${TXOME_DIR}/Ensembl/kallisto_index/Ensembl"
 
   for VERSION in GENCODE_v27 GENCODE_v38 GENCODE_v45 Ensembl; do
 
       INDEX=${KALLISTO_INDEX_MAP[$VERSION]}
-      DIR_OUT_QUANT=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/${VERSION}/${TISSUE}/kallisto
+      DIR_OUT_QUANT=${REQUANT_DIR}/${VERSION}/${TISSUE}/kallisto
       mkdir -p "$DIR_OUT_QUANT"
 
       kallisto quant \
@@ -212,15 +235,15 @@ if [ "$SALMON" = TRUE ]; then
 
   # Define TXINDEX paths for each version
   declare -A TXINDEX_MAP
-  TXINDEX_MAP[GENCODE_v27]="/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v27/salmon/gencode_v27"
-  TXINDEX_MAP[GENCODE_v38]="/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode.v38.salmon_index"
-  TXINDEX_MAP[GENCODE_v45]="/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode.v45.salmon_index/gencode_v45"
-  TXINDEX_MAP[Ensembl]="/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/Ensembl/salmon/Ensembl"
+  TXINDEX_MAP[GENCODE_v27]="${TXOME_DIR}/gencode_v27/salmon/gencode_v27"
+  TXINDEX_MAP[GENCODE_v38]="${TXOME_DIR}/gencode.v38.salmon_index"
+  TXINDEX_MAP[GENCODE_v45]="${TXOME_DIR}/gencode.v45.salmon_index/gencode_v45"
+  TXINDEX_MAP[Ensembl]="${TXOME_DIR}/Ensembl/salmon/Ensembl"
 
   for VERSION in GENCODE_v27 GENCODE_v38 GENCODE_v45 Ensembl; do
 
       TXINDEX=${TXINDEX_MAP[$VERSION]}
-      DIR_OUT_QUANT=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/${VERSION}/${TISSUE}/salmon
+      DIR_OUT_QUANT=${REQUANT_DIR}/${VERSION}/${TISSUE}/salmon
       mkdir -p "$DIR_OUT_QUANT"
 
       salmon quant \

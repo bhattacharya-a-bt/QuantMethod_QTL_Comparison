@@ -1,11 +1,40 @@
 #!/usr/bin/env Rscript
 
 ##################################################################################
+# USER CONFIGURATION - edit these paths, or set the matching environment variables
+##################################################################################
+# r_lib_path           extra R library path; "" to use the default .libPaths()
+# gene_info_file       Ensembl gene coordinate table (see r1_s02_RDStoBed.R)
+# egene_file           aggregated per-tissue/annot/quant eGene lists (RDS)
+# gwas_dir             directory holding the munged GWAS summary statistics
+# chain_file           hg19 -> hg38 liftover chain (only used if liftoverTo38=TRUE)
+# analysis_dir         per-tissue BED / covariate files from s01-s02
+# nominal_header_file  one-line file with the QTLtools nominal-pass column names
+# geno_plink_prefix    PLINK bfile prefix (no extension) for the GTEx genotypes
+# ecaviar_bin          path to the eCAVIAR executable
+# temp_base_dir        scratch directory for per-gene temporary files
+# coloc_out_dir        output directory; results are written to '<tissue>/'
+r_lib_path          <- Sys.getenv("R_LIB_PATH",          "")
+gene_info_file      <- Sys.getenv("GENE_INFO_FILE",      "/path/to/scratch/GTEx_gencode_comp/ensembl_gene_info.txt")
+egene_file          <- Sys.getenv("EGENE_FILE",          "/path/to/GTEx_v8/requants/cis_eqtl_results/r1_aggregated_eGene_lists.RDS")
+gwas_dir            <- Sys.getenv("GWAS_DIR",            "/path/to/munged_GWAS")
+chain_file          <- Sys.getenv("CHAIN_FILE",          "/path/to/GenomicReferences/liftover/hg19ToHg38.over.chain")
+analysis_dir        <- Sys.getenv("ANALYSIS_DIR",        "/path/to/scratch/GTEx_gencode_comp/requant_analyses")
+nominal_header_file <- Sys.getenv("NOMINAL_HEADER_FILE", "/path/to/scratch/GTEx_gencode_comp/nominal_header_0.txt")
+geno_plink_prefix   <- Sys.getenv("GENO_PLINK_PREFIX",   "/path/to/scratch/GTEx_gencode_comp/GTEx_838_v8_maf0.01_autosomes_unrelated")
+ecaviar_bin         <- Sys.getenv("ECAVIAR_BIN",         "/path/to/caviar/CAVIAR-C++/eCAVIAR")
+temp_base_dir       <- Sys.getenv("TEMP_BASE_DIR",       "/path/to/scratch/tempColoc")
+coloc_out_dir       <- Sys.getenv("COLOC_OUT_DIR",       "/path/to/GTEx_v8/requants/coloc_results")
+##################################################################################
+
+##################################################################################
 # change library to local
 ##################################################################################
-myPaths <- .libPaths()
-myPaths <- c("/rsrch5/home/epi/sthead/R/x86_64-pc-linux-gnu-library/4.3",myPaths)
-.libPaths(myPaths)
+if (nchar(r_lib_path) > 0) {
+  myPaths <- .libPaths()
+  myPaths <- c(r_lib_path,myPaths)
+  .libPaths(myPaths)
+}
 
 ####################################################################################
 # load dependencies
@@ -112,7 +141,7 @@ runColoc = function(qtl_data,
             qtl_data <- merge(qtl_data, ecav, by = 'CHRPOS')
             qtl_data <- merge(qtl_data, gwas_data_lifted[, c('CHRPOS', 'P', 'BETA', 'SE', 'Z')], by = 'CHRPOS')
             
-            dir_out <- paste0("/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/coloc_results/",tissue)
+            dir_out <- file.path(coloc_out_dir,tissue)
             dir.create(dir_out, recursive = TRUE)
             
             data.table::fwrite(qtl_data,
@@ -131,10 +160,10 @@ runColoc = function(qtl_data,
 ####################################################################################
 
 # gene name and location information
-gene_info1 <- data.frame(fread("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/ensembl_gene_info.txt"))
+gene_info1 <- data.frame(fread(gene_info_file))
 
 # egenes information
-gene_info <- readRDS('/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/cis_eqtl_results/r1_aggregated_eGene_lists.RDS')
+gene_info <- readRDS(egene_file)
 
 idx <- which(gene_info$Tissue==tissue & gene_info$Annotation==annot & gene_info$Method==quant)
 gene_info <- gene_info[idx,]
@@ -151,7 +180,7 @@ egenes_info <- gene_info1[gene_info1$ensembl_gene_id %in% egenes,]
 
 # load gwas data
 cat(paste0("Reading in GWAS ",pheno_name," \n"))
-gwas_data <- data.table::fread(paste0("/rsrch5/home/epi/bhattacharya_lab/data/munged_GWAS/",pheno_file))
+gwas_data <- data.table::fread(file.path(gwas_dir,pheno_file))
 
 # check if columns match expected format and rename if necessary
 if(pheno_name %in% c("BreastCancer","ProstateCancer")){
@@ -181,9 +210,6 @@ if(length(grep("^chr",gwas_data$CHR[1]))==1){
     gwas_data$CHR <- as.numeric(gwas_data$CHR)
 }
 
-# chain file for liftover
-chain_file <- '/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/liftover/hg19ToHg38.over.chain'
-
 # loop through each gene
 for (i in 1:nrow(egenes_info)) {
   
@@ -204,8 +230,7 @@ for (i in 1:nrow(egenes_info)) {
   
   
   # Create temp folder for this gene-GWAS combination
-  tempfolder <- file.path('/rsrch5/home/epi/sthead/',
-                          'tempColoc',
+  tempfolder <- file.path(temp_base_dir,
                           paste0('gene', i, '_', gene, '_', gwas_name, "_",tissue,"_",annot,"_",quant))
   dir.create(tempfolder, recursive = TRUE)
   
@@ -249,8 +274,8 @@ for (i in 1:nrow(egenes_info)) {
   
   
   # extract LD from GTEx
-  ecaviar <- '/rsrch5/home/epi/bhattacharya_lab/software/caviar/CAVIAR-C++/eCAVIAR'
-  gtex_snpfile <- '/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/GTEx_838_v8_maf0.01_autosomes_unrelated'
+  ecaviar <- ecaviar_bin
+  gtex_snpfile <- geno_plink_prefix
   
   require(bigsnpr)
   system(paste('plink2 --bfile', paste0(gtex_snpfile),
@@ -304,7 +329,7 @@ for (i in 1:nrow(egenes_info)) {
   # run qtltools nominal pass
 
   # first subset bed file to gene of interest
-  bed <- (fread(paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/requant_analyses/",tissue,"/",annot,"_",quant,".v8.normalized_expression.bed.gz")))
+  bed <- (fread(file.path(analysis_dir,tissue,paste0(annot,"_",quant,".v8.normalized_expression.bed.gz"))))
   idxx <- which(bed$pid==gene)
   bed_this <- bed[idxx,]
   write.table(bed_this,file=paste0(tempfolder,"/tmp.bed"),col.names=T,row.names=F,sep="\t",quote=F)
@@ -326,10 +351,7 @@ for (i in 1:nrow(egenes_info)) {
   system(cmd)
 
   # run qtltools nominal pass
-  cov_file <- sprintf(
-    "/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/requant_analyses/%s/%s_formatted_covariates.txt",
-    tissue, tissue
-  )
+  cov_file <- file.path(analysis_dir, tissue, paste0(tissue, "_formatted_covariates.txt"))
 
   geno_file=paste0(gene,"_",gwas_name,".vcf.gz")
 
@@ -344,7 +366,7 @@ for (i in 1:nrow(egenes_info)) {
 
   # moving on to running ecaviar
 
-  header_names <- read.table('/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/nominal_header_0.txt',
+  header_names <- read.table(nominal_header_file,
                              header = FALSE)
   header_names <- as.character(header_names[1, ])
   header_names = c(header_names,'best_hit')

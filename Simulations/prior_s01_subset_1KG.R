@@ -11,16 +11,16 @@ seed <- 12345
 pop <- "EUR" # 1KG population to simulation from
 
 ## ---- input reference file ----
-geno_file <- "/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/ldref/1KG/all_hg38.psam"
+geno_file <- Sys.getenv("KG_PSAM", "/path/to/GenomicReferences/ldref/1KG/all_hg38.psam")
 
 ## ---- project / working directory ----
 # project directory base; the pass number is appended automatically.
-# kgp3.RData is read from <proj_dir>/files_for_analysis/, from kgp R package 
-proj_base_dir <- "/rsrch5/scratch/epi/sthead/GTEx_gencode_comp"
+# kgp3.RData is read from <proj_dir>/files_for_analysis/, from kgp R package
+proj_base_dir <- Sys.getenv("BASE_DIR", "/path/to/scratch/GTEx_gencode_comp")
 
 ## ---- output directory ----
 # output directory base; the pass number is appended automatically
-out_base_dir <- "/rsrch5/scratch/epi/sthead/GTEx_gencode_comp"
+out_base_dir <- Sys.getenv("BASE_DIR", "/path/to/scratch/GTEx_gencode_comp")
 
 ####################################################################################
 # derived paths (do not edit below unless changing structure)

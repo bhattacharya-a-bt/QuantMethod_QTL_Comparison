@@ -1,3 +1,14 @@
+################################################################################
+# USER CONFIGURATION - edit these paths, or set the matching environment variables
+################################################################################
+# sequencing_json  GTEx 'sequencing.json' file manifest
+# sample_attr_file GTEx v8 sample attributes file
+# bam_list_file    sample_id -> bam_file lookup table from check_GTEx_files.sh
+sequencing_json  <- Sys.getenv("SEQUENCING_JSON",  "/path/to/scratch/GTEx/sequencing.json")
+sample_attr_file <- Sys.getenv("SAMPLE_ATTR_FILE", "/path/to/GTEx_v8/GTEx_v8_sample_attributes.txt")
+bam_list_file    <- Sys.getenv("BAM_LIST_FILE",    "/path/to/scratch/GTEx/GTE_bam_list.tsv")
+################################################################################
+
 library(jsonlite)
 library(dplyr)
 library(tidyr)
@@ -5,7 +16,7 @@ library(tidyr)
 library(jsonlite)
 
 # --- Read sequencing.json ---
-txt <- readLines("/rsrch5/home/epi/stbresnahan/scratch/GTEx/sequencing.json",
+txt <- readLines(sequencing_json,
                  warn = FALSE, encoding = "UTF-8")
 
 # Clean invalid UTF8
@@ -35,7 +46,7 @@ bam_df <- data.frame(
 
 # --- Read sample attributes ---
 sample_attributes <- read.delim(
-  "/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/GTEx_v8_sample_attributes.txt",
+  sample_attr_file,
   stringsAsFactors = FALSE
 )
 
@@ -50,7 +61,7 @@ bam_df <- bam_df %>%
 
 
 # --- Read TSV list created by Bash script ---
-bam_list <- read.delim("/rsrch5/home/epi/stbresnahan/scratch/GTEx/GTE_bam_list.tsv",
+bam_list <- read.delim(bam_list_file,
                        stringsAsFactors = FALSE)
 
 # --- Check if each bam_file from the TSV exists in sequencing.json ---

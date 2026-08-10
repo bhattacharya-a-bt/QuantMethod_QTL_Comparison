@@ -2,11 +2,28 @@
 #!/usr/bin/env Rscript
 
 ####################################################################################
+# USER CONFIGURATION - edit these, or set the matching environment variables
+####################################################################################
+# r_lib_path   extra R library path; "" to use the default .libPaths()
+# base_dir     base project directory; the pass number is appended internally
+# pass         pass holding the simulated expression and cis-eQTL results
+# ldref_dir    per-chromosome 1KG EUR PLINK reference ('chr<N>.bim' etc.)
+# tmp_dir      scratch directory for the per-gene PLINK LD output
+r_lib_path <- Sys.getenv("R_LIB_PATH", "")
+base_dir   <- Sys.getenv("BASE_DIR",   "/path/to/scratch/GTEx_gencode_comp")
+pass       <- Sys.getenv("PASS",       "2")
+ldref_dir  <- Sys.getenv("LDREF_DIR",  "/path/to/GenomicReferences/ldref/1KG/EUR")
+tmp_dir    <- Sys.getenv("TMP_DIR",    "/path/to/scratch/tmp")
+####################################################################################
+
+####################################################################################
 # change library to local
 ####################################################################################
-myPaths <- .libPaths()
-myPaths <- c("/rsrch5/home/epi/sthead/R/x86_64-pc-linux-gnu-library/4.3", myPaths)
-.libPaths(myPaths)
+if (nchar(r_lib_path) > 0) {
+  myPaths <- .libPaths()
+  myPaths <- c(r_lib_path, myPaths)
+  .libPaths(myPaths)
+}
 
 ####################################################################################
 # parse arguments
@@ -17,8 +34,11 @@ chr <- as.numeric(args[1])
 library(data.table)
 library(purrr)
 
-annot <- fread("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass2/files_for_analysis/anno_selected_genes.txt")
-expr_files <- list.files("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass2/files_for_analysis/expression")
+pass_dir <- paste0(base_dir, "/pass", pass)
+expr_dir <- paste0(pass_dir, "/files_for_analysis/expression")
+
+annot <- fread(paste0(pass_dir, "/files_for_analysis/anno_selected_genes.txt"))
+expr_files <- list.files(expr_dir)
 expr_files <- expr_files[-grep("aggregated",expr_files)]
 
 expr_genes <- expr_files |>
@@ -26,13 +46,13 @@ expr_genes <- expr_files |>
   strsplit(".RData") |> map_chr(1) |>
   sub("\\..*$", "", x = _)
 
-dat <- fread("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass2/results/cis_eqtl/aggregated_per_eqtl_results.txt")
+dat <- fread(paste0(pass_dir, "/results/cis_eqtl/aggregated_per_eqtl_results.txt"))
 dat <- data.frame(dat)
 
 message("Starting chr ", chr)
 
 bim <- fread(
-  paste0("/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/ldref/1KG/EUR/chr",chr,".bim")
+  paste0(ldref_dir,"/chr",chr,".bim")
 ) |> data.frame()
 
 dat_chr <- dat[dat$phe_chr == chr,]
@@ -47,10 +67,7 @@ gene_res <- lapply(seq_along(egenes), function(g){
 
   idx <- which(expr_genes == gene)
 
-  load(paste0(
-    "/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass2/files_for_analysis/expression/",
-    expr_files[idx]
-  ))
+  load(file.path(expr_dir, expr_files[idx]))
 
   transcript_info <- do.call(rbind, strsplit(Y$transcript_ids, "\\|"))
 
@@ -126,8 +143,8 @@ gene_res <- lapply(seq_along(egenes), function(g){
   all_rsids <- unique(c(vars,eqtls))
 
   # Define inputs
-  plink_prefix <- paste0("/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/ldref/1KG/EUR/chr",chr)  # without file extensions
-  out_prefix <- paste0("/rsrch5/scratch/epi/sthead/tmp/chr",chr,"_",gene)
+  plink_prefix <- paste0(ldref_dir,"/chr",chr)  # without file extensions
+  out_prefix <- paste0(tmp_dir,"/chr",chr,"_",gene)
   snp_file <- tempfile(pattern = "snplist_", fileext = ".txt")
   fwrite(data.table(SNP = all_rsids), snp_file, col.names = FALSE, quote = FALSE)
 
@@ -178,4 +195,4 @@ gene_res <- lapply(seq_along(egenes), function(g){
 
 out <- rbindlist(gene_res)
 
-save(out,file=paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass2/results/cis_eqtl/eqtl_res_with_true_beta_chr",chr,".RData"))
+save(out,file=paste0(pass_dir,"/results/cis_eqtl/eqtl_res_with_true_beta_chr",chr,".RData"))

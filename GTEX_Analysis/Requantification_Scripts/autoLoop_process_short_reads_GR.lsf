@@ -3,23 +3,36 @@
 #BSUB -n 1
 #BSUB -M 2
 #BSUB -R rusage[mem=2]
-#BSUB -o /rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/logs
-#BSUB -e /rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/logs
+#BSUB -o /path/to/GTEx_v8/requants/logs
+#BSUB -e /path/to/GTEx_v8/requants/logs
 #BSUB -q vlong
 
-sample_IDs=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/GTEx_v8_sample_attributes.txt
-bamdir=/rsrch3/scratch/reflib/GTEx/SourceFiles/Bam
+# ============================== USER CONFIGURATION ==============================
+# Edit the defaults below, or export these variables before submitting the job.
+# 'tissue' and 'user' are supplied by loop_process_short_reads_GR.sh via bsub -env.
+#   sample_IDs   GTEx v8 sample attributes file (column 1 sample ID, column 3
+#                tissue)
+#   bamdir       directory holding the source GTEx BAM files
+#   SCRATCH      per-user scratch root; free space here drives job throttling
+#   REQUANT_DIR  requantification output root (also holds the run log)
+#   DIR_SCRIPTS  directory containing run_process_short_reads_GR.lsf
+# The #BSUB -o/-e log paths above must be edited directly: LSF does not expand
+# shell variables in #BSUB directives.
+# ================================================================================
+sample_IDs="${sample_IDs:-/path/to/GTEx_v8/GTEx_v8_sample_attributes.txt}"
+bamdir="${bamdir:-/path/to/GTEx/SourceFiles/Bam}"
+SCRATCH="${SCRATCH:-/path/to/scratch/${user}}"
+REQUANT_DIR="${REQUANT_DIR:-/path/to/GTEx_v8/requants}"
+DIR_SCRIPTS="${DIR_SCRIPTS:-/path/to/QuantMethod_QTL_Comparison/GTEX_Analysis/Requantification_Scripts}"
 
-SCRATCH=/rsrch5/scratch/epi/${user}
 BASE=${SCRATCH}/GTEx_v8
-LOG=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/${tissue}_run.log
+LOG=${REQUANT_DIR}/${tissue}_run.log
 
 SAMPLE_DISK=80   # GB per sample
 BUFFER=500       # GB buffer
 CHECK_INTERVAL=300  # 5 minutes
 
 mkdir -p ${BASE}/{temp,raw,reports,metrics,align,quant}/${tissue}
-DIR_SCRIPTS=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/Scripts
 
 # ----------------------------------------------------------------------
 # Load sample IDs
@@ -56,10 +69,10 @@ submit_sample() {
     MATCH=$(basename "$(ls "${bamdir}/${FILE}"*.bam 2>/dev/null | head -n 1)")
     [[ -z "$MATCH" ]] && echo "No BAM found for ${FILE}, skipping..." && return
 
-    F=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/Ensembl/${tissue}/featureCounts/${FILE}_transcript.txt
-    R=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/Ensembl/${tissue}/RSEM/${FILE}.isoforms.results
-    S=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/Ensembl/${tissue}/salmon/${FILE}/quant.sf
-    K=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/Ensembl/${tissue}/kallisto/${FILE}/abundance.tsv
+    F=${REQUANT_DIR}/Ensembl/${tissue}/featureCounts/${FILE}_transcript.txt
+    R=${REQUANT_DIR}/Ensembl/${tissue}/RSEM/${FILE}.isoforms.results
+    S=${REQUANT_DIR}/Ensembl/${tissue}/salmon/${FILE}/quant.sf
+    K=${REQUANT_DIR}/Ensembl/${tissue}/kallisto/${FILE}/abundance.tsv
     Q=${BASE}/raw/${tissue}/${FILE}_R2.fastq.gz
 
     [[ -f "$F" ]] && FEATURECOUNTS=FALSE || FEATURECOUNTS=TRUE

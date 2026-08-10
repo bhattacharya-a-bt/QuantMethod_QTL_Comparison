@@ -3,18 +3,32 @@
 #BSUB -n 1
 #BSUB -M 2
 #BSUB -R rusage[mem=2]
-#BSUB -o /rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants
-#BSUB -e /rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants
+#BSUB -o /path/to/GTEx_v8/requants
+#BSUB -e /path/to/GTEx_v8/requants
 #BSUB -q long
 
-sample_IDs=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/GTEx_v8_sample_attributes.txt
-bamdir=/rsrch3/scratch/reflib/GTEx/SourceFiles/Bam
-tissue=Brain_Hippocampus
-user=stbresnahan
+# ============================== USER CONFIGURATION ==============================
+# 10-sample smoke test: edit the defaults below (or export them) before running.
+#   tissue       tissue to test with
+#   user         cluster username owning the scratch directory
+#   sample_IDs   GTEx v8 sample attributes file (column 1 sample ID, column 3
+#                tissue)
+#   bamdir       directory holding the source GTEx BAM files
+#   SCRATCH_DIR  per-user scratch working directory for this run
+#   REQUANT_DIR  requantification output root
+#   DIR_SCRIPTS  directory containing run_process_short_reads_GR.lsf
+# The #BSUB -o/-e log paths above must be edited directly: LSF does not expand
+# shell variables in #BSUB directives.
+# ================================================================================
+tissue="${tissue:-Brain_Hippocampus}"
+user="${user:-your_username}"
+sample_IDs="${sample_IDs:-/path/to/GTEx_v8/GTEx_v8_sample_attributes.txt}"
+bamdir="${bamdir:-/path/to/GTEx/SourceFiles/Bam}"
+SCRATCH_DIR="${SCRATCH_DIR:-/path/to/scratch/${user}/GTEx_v8}"
+REQUANT_DIR="${REQUANT_DIR:-/path/to/GTEx_v8/requants}"
+DIR_SCRIPTS="${DIR_SCRIPTS:-/path/to/QuantMethod_QTL_Comparison/GTEX_Analysis/Requantification_Scripts}"
 
-mkdir -p /rsrch5/scratch/epi/${user}/GTEx_v8/{temp,raw,reports,metrics,align,quant}/${tissue}
-
-DIR_SCRIPTS=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/Scripts
+mkdir -p ${SCRATCH_DIR}/{temp,raw,reports,metrics,align,quant}/${tissue}
 
 # Collect all sample IDs for the tissue
 FILES=( $(awk -F'\t' -v t="$tissue" 'NR>1 && $3 == t {print $1}' "${sample_IDs}") )
@@ -43,11 +57,11 @@ for FILE in "${SELECTED[@]}"; do
     
     MATCH=$(basename "$(ls "${bamdir}/${FILE}"*.bam 2>/dev/null | head -n 1)")
 
-    F=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/Ensembl/${tissue}/featureCounts/${FILE}_transcript.txt
-    R=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/Ensembl/${tissue}/RSEM/${FILE}.isoforms.results
-    S=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/Ensembl/${tissue}/salmon/${FILE}/quant.sf
-    K=/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/Ensembl/${tissue}/kallisto/${FILE}/abundance.tsv
-    Q=/rsrch5/scratch/epi/${user}/GTEx_v8/raw/${tissue}/${FILE}_R2.fastq.gz
+    F=${REQUANT_DIR}/Ensembl/${tissue}/featureCounts/${FILE}_transcript.txt
+    R=${REQUANT_DIR}/Ensembl/${tissue}/RSEM/${FILE}.isoforms.results
+    S=${REQUANT_DIR}/Ensembl/${tissue}/salmon/${FILE}/quant.sf
+    K=${REQUANT_DIR}/Ensembl/${tissue}/kallisto/${FILE}/abundance.tsv
+    Q=${SCRATCH_DIR}/raw/${tissue}/${FILE}_R2.fastq.gz
 
     [[ -f "$F" ]] && FEATURECOUNTS=FALSE || FEATURECOUNTS=TRUE
     [[ -f "$R" ]] && RSEM=FALSE || RSEM=TRUE
@@ -75,12 +89,10 @@ done
 
 # ============ DISK WATCH LOOP (runs every 5 minutes) ============
 
-SCRATCH_DIR="/rsrch5/scratch/epi/${user}/GTEx_v8"
-
-REQ1="/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/Ensembl/${tissue}"
-REQ2="/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/GENCODE_v27/${tissue}"
-REQ3="/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/GENCODE_v38/${tissue}"
-REQ4="/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/GENCODE_v45/${tissue}"
+REQ1="${REQUANT_DIR}/Ensembl/${tissue}"
+REQ2="${REQUANT_DIR}/GENCODE_v27/${tissue}"
+REQ3="${REQUANT_DIR}/GENCODE_v38/${tissue}"
+REQ4="${REQUANT_DIR}/GENCODE_v45/${tissue}"
 
 echo
 echo "Entering 5-minute disk-usage monitor loop..."

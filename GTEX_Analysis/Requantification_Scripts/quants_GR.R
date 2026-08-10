@@ -30,7 +30,7 @@
 #   - SAF annotation files for featureCounts
 #
 # Output:
-#   - Log file at /rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/tissue_log.out
+#   - Log file at <requant_dir>/<tissue>_combine.log
 #   - RDS files containing gene and transcript-level quantifications
 #   - Includes raw counts and TMM-normalized CPM values
 #   - Separate outputs for each quantification method and annotation version
@@ -38,8 +38,34 @@
 #   - Salmon and Kallisto outputs saved as SummarizedExperiment objects
 ################################################################################
 
+################################################################################
+# USER CONFIGURATION - edit these paths, or set the matching environment variables
+################################################################################
+# r_lib_path        extra R library path; "" to use the default .libPaths().
+#                   Also applied inside the parallel featureCounts workers.
+# requant_dir       requantification root; per-sample quantifications are read
+#                   from '<requant_dir>/<ANNOTATION>/<tissue>/<method>/' and the
+#                   aggregated RDS files are written to '<requant_dir>/<ANNOTATION>/'
+# scratch_root      scratch root; the working directory is
+#                   '<scratch_root>/<user>/GTEx_v8' and the tximeta cache lives
+#                   in its 'tximeta' subdirectory
+# metadata_file     GTEx v8 sample attributes file
+# fc_annot_dir      featureCounts SAF files ('<ANNOTATION>_genes.saf', etc.)
+# genome_fasta      GRCh38 reference FASTA used by makeLinkedTxome
+# txome_dir         root of the per-annotation transcriptome indices/references
+r_lib_path    <- Sys.getenv("R_LIB_PATH",    "")
+requant_dir   <- Sys.getenv("REQUANT_DIR",   "/path/to/GTEx_v8/requants")
+scratch_root  <- Sys.getenv("SCRATCH_ROOT",  "/path/to/scratch")
+metadata_file <- Sys.getenv("SAMPLE_ATTR_FILE", "/path/to/GTEx_v8/GTEx_v8_sample_attributes.txt")
+fc_annot_dir  <- Sys.getenv("FC_ANNOT_DIR",  file.path(requant_dir, "fc_annots"))
+genome_fasta  <- Sys.getenv("GENOME_FASTA",  "/path/to/GenomicReferences/genome/GCA_000001405.15_GRCh38_no_alt_analysis_set_cleaned_ready_for_salmon.fasta")
+txome_dir     <- Sys.getenv("TXOME_DIR",     "/path/to/GenomicReferences/txome")
+################################################################################
+
 # Set library path to personal R library location
-.libPaths(c("/rsrch5/home/epi/bhattacharya_lab/data/Rlibs/4.3.1", .libPaths()))
+if (nchar(r_lib_path) > 0) {
+  .libPaths(c(r_lib_path, .libPaths()))
+}
 
 ################################################################################
 # Load Required Libraries
@@ -224,8 +250,8 @@ cat("User:", user, "\n")
 cat("Start time:", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n")
 cat("================================================================================\n\n")
 
-# Working directory for temporary/intermediate files /rsrch5/scratch/epi
-wdir <- paste0("/rsrch5/scratch/epi/",user,"/GTEx_v8")
+# Working directory for temporary/intermediate files
+wdir <- file.path(scratch_root, user, "GTEx_v8")
 setwd(wdir)
 cat("Working directory:", wdir, "\n\n")
 
@@ -233,8 +259,7 @@ cat("Working directory:", wdir, "\n\n")
 # Load and Filter Sample Metadata
 ################################################################################
 cat("Loading GTEx v8 sample metadata...\n")
-# Load GTEx v8 sample attributes
-metadata_file <- "/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/GTEx_v8_sample_attributes.txt"
+# Load GTEx v8 sample attributes (path set in the configuration block above)
 metadata_check <- check_file_valid(metadata_file, min_size = 1000)
 if (!metadata_check$valid) {
   stop(paste0("FATAL: Sample metadata file invalid: ", metadata_check$reason))
@@ -284,10 +309,7 @@ for(ANNOTATION in c("GENCODE_v27", "GENCODE_v38", "GENCODE_v45", "Ensembl")) {
   cat("--------------------------------------------------------------------------------\n")
   
   # Set output directory for this annotation version
-  output_dir <- paste0(
-    "/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/",
-    ANNOTATION
-  )
+  output_dir <- file.path(requant_dir, ANNOTATION)
   cat("  Output directory:", output_dir, "\n")
   
   # Check output directory exists
@@ -306,28 +328,28 @@ for(ANNOTATION in c("GENCODE_v27", "GENCODE_v38", "GENCODE_v45", "Ensembl")) {
   
   # Set annotation-specific paths for Salmon index and GTF annotation
   # Reference genome FASTA (same for all annotations, as all use GRCh38)
-  fasta <- "/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/genome/GCA_000001405.15_GRCh38_no_alt_analysis_set_cleaned_ready_for_salmon.fasta"
-  
+  fasta <- genome_fasta
+
   # Define annotation-specific parameters
   annotation_params <- list(
     GENCODE_v27 = list(
-      index = "/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v27/salmon/gencode_v27",
-      gtf = "/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v27/gencode.v27.annotation.gtf",
+      index = file.path(txome_dir, "gencode_v27/salmon/gencode_v27"),
+      gtf = file.path(txome_dir, "gencode_v27/gencode.v27.annotation.gtf"),
       source = "GENCODEv27"
     ),
     GENCODE_v38 = list(
-      index = "/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode.v38.salmon_index",
-      gtf = "/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v38/gencode.v38.annotation.gtf",
+      index = file.path(txome_dir, "gencode.v38.salmon_index"),
+      gtf = file.path(txome_dir, "gencode_v38/gencode.v38.annotation.gtf"),
       source = "GENCODEv38"
     ),
     GENCODE_v45 = list(
-      index = "/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode.v45.salmon_index/gencode_v45",
-      gtf = "/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v45/gencode.v45.annotation.gtf",
+      index = file.path(txome_dir, "gencode.v45.salmon_index/gencode_v45"),
+      gtf = file.path(txome_dir, "gencode_v45/gencode.v45.annotation.gtf"),
       source = "GENCODEv45"
     ),
     Ensembl = list(
-      index = "/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/Ensembl/salmon/Ensembl",
-      gtf = "/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/Ensembl/Ensembl_Homo_sapiens.GRCh38.115.chr.added.gtf",
+      index = file.path(txome_dir, "Ensembl/salmon/Ensembl"),
+      gtf = file.path(txome_dir, "Ensembl/Ensembl_Homo_sapiens.GRCh38.115.chr.added.gtf"),
       source = "Ensembl"
     )
   )
@@ -349,9 +371,9 @@ for(ANNOTATION in c("GENCODE_v27", "GENCODE_v38", "GENCODE_v45", "Ensembl")) {
   
   cat("  Creating linked transcriptome for tximeta...\n")
   
-  # Set tximeta cache location /rsrch5/scratch/epi
-  dir.create(paste0("/rsrch5/scratch/epi/", user, "/GTEx_v8/tximeta"), recursive = TRUE)
-  setTximetaBFC(paste0("/rsrch5/scratch/epi/",user,"/GTEx_v8/tximeta"))
+  # Set tximeta cache location (under the scratch working directory)
+  dir.create(file.path(wdir, "tximeta"), recursive = TRUE)
+  setTximetaBFC(file.path(wdir, "tximeta"))
   
   # Create linked transcriptome for tximeta
   tryCatch({
@@ -388,7 +410,7 @@ for(ANNOTATION in c("GENCODE_v27", "GENCODE_v38", "GENCODE_v45", "Ensembl")) {
     tryCatch({
       
       # List all Salmon quantification directories
-      quant_dir <- paste0("/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/",ANNOTATION,"/", tissue, "/salmon")
+      quant_dir <- file.path(requant_dir, ANNOTATION, tissue, "salmon")
       if (!dir.exists(quant_dir)) {
         stop(paste0("Salmon quant directory does not exist: ", quant_dir))
       }
@@ -402,8 +424,7 @@ for(ANNOTATION in c("GENCODE_v27", "GENCODE_v38", "GENCODE_v45", "Ensembl")) {
       
       # Prepare metadata data frame for tximeta
       metadata <- samps.tissue[, 1:2]
-      metadata$file <- paste0("/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/",
-                              ANNOTATION,"/", tissue, "/salmon","/",metadata$SAMPID)
+      metadata$file <- file.path(requant_dir, ANNOTATION, tissue, "salmon", metadata$SAMPID)
       metadata <- metadata[, c(3, 1, 2)]
       names(metadata) <- c("files", "names", "SMTSD")
       
@@ -538,8 +559,8 @@ for(ANNOTATION in c("GENCODE_v27", "GENCODE_v38", "GENCODE_v45", "Ensembl")) {
       cat("    Reading annotation files...\n")
       
       # Check SAF files exist and are valid
-      gene_saf <- paste0("/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/fc_annots/",ANNOTATION,"_genes.saf")
-      tx_saf <- paste0("/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/fc_annots/",ANNOTATION,"_transcripts.saf")
+      gene_saf <- file.path(fc_annot_dir, paste0(ANNOTATION, "_genes.saf"))
+      tx_saf <- file.path(fc_annot_dir, paste0(ANNOTATION, "_transcripts.saf"))
       
       gene_saf_check <- check_file_valid(gene_saf, min_size = 100)
       if (!gene_saf_check$valid) {
@@ -567,8 +588,7 @@ for(ANNOTATION in c("GENCODE_v27", "GENCODE_v38", "GENCODE_v45", "Ensembl")) {
       fC.tx <- data.frame(GeneID=unique(transcripts$GeneID))
       
       # Path to the featureCounts directory
-      fc_dir <- paste0("/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/",
-                       ANNOTATION,"/",tissue,"/featureCounts")
+      fc_dir <- file.path(requant_dir, ANNOTATION, tissue, "featureCounts")
       
       if (!dir.exists(fc_dir)) {
         stop(paste0("featureCounts directory does not exist: ", fc_dir))
@@ -606,7 +626,10 @@ for(ANNOTATION in c("GENCODE_v27", "GENCODE_v38", "GENCODE_v45", "Ensembl")) {
       n_cores <- min(8, parallel::detectCores() - 1)
       cat("      Processing files in parallel (", n_cores, "cores)...\n")
       cl <- makeCluster(n_cores)
-      clusterEvalQ(cl, .libPaths(c("/rsrch5/home/epi/bhattacharya_lab/data/Rlibs/4.3.1", .libPaths())))
+      if (nchar(r_lib_path) > 0) {
+        clusterExport(cl, "r_lib_path")
+        clusterEvalQ(cl, .libPaths(c(r_lib_path, .libPaths())))
+      }
       clusterEvalQ(cl, library(data.table))
       
       # Process files in parallel with error handling
@@ -708,7 +731,10 @@ for(ANNOTATION in c("GENCODE_v27", "GENCODE_v38", "GENCODE_v45", "Ensembl")) {
       n_cores <- min(8, parallel::detectCores() - 1)
       cat("      Processing files in parallel (", n_cores, "cores)...\n")
       cl <- makeCluster(n_cores)
-      clusterEvalQ(cl, .libPaths(c("/rsrch5/home/epi/bhattacharya_lab/data/Rlibs/4.3.1", .libPaths())))
+      if (nchar(r_lib_path) > 0) {
+        clusterExport(cl, "r_lib_path")
+        clusterEvalQ(cl, .libPaths(c(r_lib_path, .libPaths())))
+      }
       clusterEvalQ(cl, library(data.table))
       
       res_list <- pblapply(files, function(f) {
@@ -792,7 +818,7 @@ for(ANNOTATION in c("GENCODE_v27", "GENCODE_v38", "GENCODE_v45", "Ensembl")) {
   ##############################################################################
   
   rsem_input_dir <- file.path(
-    "/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants",
+    requant_dir,
     ANNOTATION, tissue,
     "RSEM"
   )
@@ -1046,10 +1072,10 @@ for(ANNOTATION in c("GENCODE_v27", "GENCODE_v38", "GENCODE_v45", "Ensembl")) {
     tryCatch({
       cat("    Reading transcript-to-gene mapping...\n")
       tx2g_file_map <- c(
-        GENCODE_v27="/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v27/GENCODE_v27_tx2gene.csv",
-        GENCODE_v38="/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v38/GENCODE_v38_tx2gene.csv",
-        GENCODE_v45="/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/gencode_v45/GENCODE_v45_tx2gene.csv",
-        Ensembl="/rsrch5/home/epi/bhattacharya_lab/data/GenomicReferences/txome/Ensembl/Ensembl_tx2gene.csv"
+        GENCODE_v27=file.path(txome_dir, "gencode_v27/GENCODE_v27_tx2gene.csv"),
+        GENCODE_v38=file.path(txome_dir, "gencode_v38/GENCODE_v38_tx2gene.csv"),
+        GENCODE_v45=file.path(txome_dir, "gencode_v45/GENCODE_v45_tx2gene.csv"),
+        Ensembl=file.path(txome_dir, "Ensembl/Ensembl_tx2gene.csv")
       )
       tx2gene_file <- tx2g_file_map[ANNOTATION]
       
@@ -1063,8 +1089,7 @@ for(ANNOTATION in c("GENCODE_v27", "GENCODE_v38", "GENCODE_v45", "Ensembl")) {
         stop("tx2gene file is empty")
       }
       
-      # /rsrch5/scratch/epi
-      kallisto_dir <- paste0("/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/",ANNOTATION,"/", tissue, "/kallisto")
+      kallisto_dir <- file.path(requant_dir, ANNOTATION, tissue, "kallisto")
       if (!dir.exists(kallisto_dir)) {
         stop(paste0("Kallisto directory does not exist: ", kallisto_dir))
       }
@@ -1076,7 +1101,7 @@ for(ANNOTATION in c("GENCODE_v27", "GENCODE_v38", "GENCODE_v45", "Ensembl")) {
         stop("No sample directories found matching metadata")
       }
       
-      files <- file.path("/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants",
+      files <- file.path(requant_dir,
                          ANNOTATION, tissue, "kallisto", dirs_all, "abundance.tsv")
       names(files) <- dirs_all
       
@@ -1222,7 +1247,7 @@ log_messages <- c(log_messages, "", paste0("End time: ", format(Sys.time(), "%Y-
 
 df <- data.frame(message = log_messages, stringsAsFactors = FALSE)
 
-log_file <- paste0("/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/", tissue, "_combine.log")
+log_file <- file.path(requant_dir, paste0(tissue, "_combine.log"))
 write.table(
   df,
   file = log_file,

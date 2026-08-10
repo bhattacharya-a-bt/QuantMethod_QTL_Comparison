@@ -3,12 +3,27 @@
 #BSUB -n 12
 #BSUB -M 200
 #BSUB -R rusage[mem=200]
-#BSUB -o /rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/logs
-#BSUB -e /rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/logs
+#BSUB -o /path/to/GTEx_v8/requants/logs
+#BSUB -e /path/to/GTEx_v8/requants/logs
 #BSUB -q medium
 
-mkdir -p /rsrch5/home/epi/${USER}/scratch/GTEx_v8/tximeta
+# ============================== USER CONFIGURATION ==============================
+# Edit the defaults below, or export these variables before submitting the job.
+# 'TISSUE' and 'USER' are supplied by run_quants_GR.sh via bsub -env.
+#   TXIMETA_CACHE  tximeta cache directory to create for this user
+#   DIR_SCRIPTS    directory containing quants_GR.R
+#   SIF_IMAGE      Singularity image providing R 4.3.1
+#   SIF_BIND       filesystem root to bind into the container
+# The #BSUB -o/-e log paths above must be edited directly: LSF does not expand
+# shell variables in #BSUB directives.
+# ================================================================================
+TXIMETA_CACHE="${TXIMETA_CACHE:-/path/to/scratch/${USER}/GTEx_v8/tximeta}"
+DIR_SCRIPTS="${DIR_SCRIPTS:-/path/to/QuantMethod_QTL_Comparison/GTEX_Analysis/Requantification_Scripts}"
+SIF_IMAGE="${SIF_IMAGE:-/path/to/singularity/rstudio_4.3.1.sif}"
+SIF_BIND="${SIF_BIND:-/path/to/bind}"
 
-cd /rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/Scripts
+mkdir -p ${TXIMETA_CACHE}
 
-singularity exec --bind /rsrch5 /risapps/singularity/repo/RStudio/4.3.1/rstudio_4.3.1.sif Rscript quants_GR.R ${TISSUE} ${USER}
+cd ${DIR_SCRIPTS}
+
+singularity exec --bind ${SIF_BIND} ${SIF_IMAGE} Rscript quants_GR.R ${TISSUE} ${USER}

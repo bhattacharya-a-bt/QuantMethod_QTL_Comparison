@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# ============================ USER CONFIGURATION ============================
+# Edit the default below, or export SCRIPT_DIR before submitting the job.
+#   SCRIPT_DIR  directory containing r1_s08_runTWAS.R
+# r1_s08_runTWAS.R has its own configuration block for its input/output paths.
+# ============================================================================
+SCRIPT_DIR="${SCRIPT_DIR:-/path/to/QuantMethod_QTL_Comparison/GTEX_Analysis}"
+
 echo "***** HPC job info ***** "
 echo "Job ID: $LSB_JOBID"
 echo "Job index within array: $LSB_JOBINDEX"
@@ -27,7 +34,7 @@ echo "n_bins=$4"
 echo "bin_index=$5"
 
 echo "Running TWAS..."
-Rscript /rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/Scripts/r1_s08_runTWAS.R $LSB_JOBINDEX $1 $2 $3 $4 $5
+Rscript ${SCRIPT_DIR}/r1_s08_runTWAS.R $LSB_JOBINDEX $1 $2 $3 $4 $5
 
 # unload modules
 module unload R

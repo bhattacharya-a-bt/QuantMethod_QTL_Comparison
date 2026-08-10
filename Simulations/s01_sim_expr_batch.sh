@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# ============================ USER CONFIGURATION ============================
+# Edit the default below, or export SCRIPT_DIR before submitting the job.
+#   SCRIPT_DIR  directory containing s01_sim_expr.R
+# ============================================================================
+SCRIPT_DIR="${SCRIPT_DIR:-/path/to/QuantMethod_QTL_Comparison/Simulations}"
+
 echo "***** HPC job info ***** "
 echo "Job ID: $LSB_JOBID"
 echo "Job index within array: $LSB_JOBINDEX"
@@ -32,7 +38,7 @@ fi
 
 for ((i=START_INDEX; i<=END_INDEX; i++))
 do
-    Rscript /rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass${PASS}/scripts/s01_sim_expr.R $i ${PASS} ${GENO_PASS} ${BASE_DIR}
+    Rscript ${SCRIPT_DIR}/s01_sim_expr.R $i ${PASS} ${GENO_PASS} ${BASE_DIR}
 done
 
 # unload modules

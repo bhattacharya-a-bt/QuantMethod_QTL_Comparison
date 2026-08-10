@@ -1,10 +1,21 @@
-.libPaths(c("/rsrch5/home/epi/bhattacharya_lab/data/Rlibs/4.3.1", .libPaths()))
+################################################################################
+# USER CONFIGURATION - edit these paths, or set the matching environment variables
+################################################################################
+# r_lib_path  extra R library path; "" to use the default .libPaths()
+# base_path   requantification output root; polished outputs are written to
+#             '<base_path>/polished/<annotation>/'
+r_lib_path <- Sys.getenv("R_LIB_PATH",  "")
+base_path  <- Sys.getenv("REQUANT_DIR", "/path/to/GTEx_v8/requants")
+################################################################################
+
+if (nchar(r_lib_path) > 0) {
+  .libPaths(c(r_lib_path, .libPaths()))
+}
 library(SummarizedExperiment)
 
 # Polish quantification outputs - find consistent samples and features
 
 ANNOTATION <- c("GENCODE_v27", "GENCODE_v38", "GENCODE_v45", "Ensembl")
-base_path <- "/rsrch5/home/epi/stbresnahan/bhattacharya_lab/data/GTEx_v8/requants"
 
 # Get all RDS files from one annotation directory (they should all have the same tissues)
 cat("Identifying all tissues...\n")

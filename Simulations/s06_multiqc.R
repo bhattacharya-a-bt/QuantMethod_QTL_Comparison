@@ -1,11 +1,22 @@
 #!/usr/bin/env Rscript
 
 ###################################################################
+# USER CONFIGURATION - edit these, or set the matching env variables
+###################################################################
+# r_lib_path  extra R library path; "" to use the default .libPaths()
+# base_dir    base project directory; the pass number is appended internally
+r_lib_path <- Sys.getenv("R_LIB_PATH", "")
+base_dir   <- Sys.getenv("BASE_DIR",   "/path/to/scratch/GTEx_gencode_comp")
+###################################################################
+
+###################################################################
 # change library to local
 ###################################################################
-myPaths <- .libPaths()
-myPaths <- c("/rsrch5/home/epi/sthead/R/x86_64-pc-linux-gnu-library/4.3",myPaths)
-.libPaths(myPaths)
+if (nchar(r_lib_path) > 0) {
+  myPaths <- .libPaths()
+  myPaths <- c(r_lib_path,myPaths)
+  .libPaths(myPaths)
+}
 
 ####################################################################################
 # load dependencies
@@ -23,7 +34,7 @@ param_row_reads <- as.numeric(args[2])
 # begin code
 ####################################################################################
 
-stats <- data.frame(fread(paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass",pass,"/files_for_analysis/fastqc/param_row_reads_",param_row_reads,"/multiqc_data/multiqc_fastqc.txt")))
+stats <- data.frame(fread(paste0(base_dir,"/pass",pass,"/files_for_analysis/fastqc/param_row_reads_",param_row_reads,"/multiqc_data/multiqc_fastqc.txt")))
 
 # check for failed samples in any column of quality metrics
 # filter samples where all relevant columns have "pass"
@@ -43,5 +54,5 @@ if (any(passing > 0)) {
     samples_to_keep <- stats$Sample[-which(passing > 0)]
 }
 
-write.table(samples_to_keep, paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/pass",pass,"/files_for_analysis/samples_pass_qc_prreads_",param_row_reads,".txt"),
+write.table(samples_to_keep, paste0(base_dir,"/pass",pass,"/files_for_analysis/samples_pass_qc_prreads_",param_row_reads,".txt"),
  row.names = FALSE, col.names = FALSE, quote = FALSE)

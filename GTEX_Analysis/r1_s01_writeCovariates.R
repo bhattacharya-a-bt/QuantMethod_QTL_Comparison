@@ -1,10 +1,22 @@
-for (tissue in list.files('/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/gencodev45')){
-covar_file <- file.path('/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/covariate_files',
+####################################################################################
+# USER CONFIGURATION - edit these paths, or set the matching environment variables
+####################################################################################
+# tissue_list_dir  directory whose subdirectory names are the tissues to loop over
+# covar_dir        directory holding GTEx '<tissue>.v8.covariates.txt.covar' files
+# analysis_dir     output directory; '<tissue>/<tissue>_formatted_covariates.txt'
+#                  is written underneath it (created if missing)
+tissue_list_dir <- Sys.getenv("TISSUE_LIST_DIR", "/path/to/GTEx_v8/gencodev45")
+covar_dir       <- Sys.getenv("COVAR_DIR",       "/path/to/GTEx_v8/covariate_files")
+analysis_dir    <- Sys.getenv("ANALYSIS_DIR",    "/path/to/scratch/GTEx_gencode_comp/requant_analyses")
+####################################################################################
+
+for (tissue in list.files(tissue_list_dir)){
+covar_file <- file.path(covar_dir,
                         paste0(tissue,'.v8.covariates.txt.covar'))
-dir.create(file.path('/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/requant_analyses/',
+dir.create(file.path(analysis_dir,
                      tissue),
            recursive = T)
-out_file <- file.path('/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/requant_analyses/',
+out_file <- file.path(analysis_dir,
                       tissue,
                       paste0(tissue,"_formatted_covariates.txt"))
 

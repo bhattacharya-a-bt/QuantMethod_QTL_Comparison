@@ -1,11 +1,33 @@
 #!/usr/bin/env Rscript
 
 ##################################################################################
+# USER CONFIGURATION - edit these paths, or set the matching environment variables
+##################################################################################
+# r_lib_path         extra R library path; "" to use the default .libPaths()
+# paramspace_file    parameter space file (columns: annot quant tissue)
+# analysis_dir       per-tissue BED / covariate files from s01-s02; the
+#                    covariate-corrected BED is also written here
+# geno_plink_prefix  PLINK bfile prefix (no extension) for the GTEx genotypes
+# geno_vcf           bgzipped+tabixed GTEx genotype VCF
+# twas_weights_dir   output directory for the trained per-gene SNP weights
+# temp_dir_base      scratch directory for temporary files
+r_lib_path        <- Sys.getenv("R_LIB_PATH",        "")
+paramspace_file   <- Sys.getenv("PSPACE",            "/path/to/GTEx_v8/requants/requant_paramspace.txt")
+analysis_dir      <- Sys.getenv("ANALYSIS_DIR",      "/path/to/scratch/GTEx_gencode_comp/requant_analyses")
+geno_plink_prefix <- Sys.getenv("GENO_PLINK_PREFIX", "/path/to/scratch/GTEx_gencode_comp/GTEx_838_v8_maf0.01_autosomes_unrelated")
+geno_vcf          <- Sys.getenv("GENO_FILE",         "/path/to/scratch/GTEx_gencode_comp/GTEx_838_v8_maf0.01_autosomes_unrelated.vcf.gz")
+twas_weights_dir  <- Sys.getenv("TWAS_WEIGHTS_DIR",  "/path/to/scratch/GTEx_gencode_comp/requant_analyses/TWAS_weights")
+temp_dir_base     <- Sys.getenv("TEMP_DIR_BASE",     "/path/to/scratch/GTEx_gencode_comp/requant_analyses/tmp")
+##################################################################################
+
+##################################################################################
 # change library to local
 ##################################################################################
-myPaths <- .libPaths()
-myPaths <- c("/rsrch5/home/epi/sthead/R/x86_64-pc-linux-gnu-library/4.3",myPaths)
-.libPaths(myPaths)
+if (nchar(r_lib_path) > 0) {
+  myPaths <- .libPaths()
+  myPaths <- c(r_lib_path,myPaths)
+  .libPaths(myPaths)
+}
 
 ####################################################################################
 # load dependencies
@@ -30,7 +52,7 @@ if (is.na(index)) {
   stop("The fourth argument (index) must be a valid numeric value.", call. = FALSE)
 }
 
-PSPACE <- data.frame(fread("/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/requants/requant_paramspace.txt",
+PSPACE <- data.frame(fread(paramspace_file,
   header=F))
 
 cat("Processing tissue:", tissue, "\n")
@@ -38,23 +60,23 @@ cat("Processing annot:", annot, "\n")
 cat("Processing quant:", quant, "\n")
 cat("Index:", index, "\n")
 
-bed_file = paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/requant_analyses/",tissue,"/",annot,"_",quant,".v8.normalized_expression.bed.gz")
+bed_file = file.path(analysis_dir,tissue,paste0(annot,"_",quant,".v8.normalized_expression.bed.gz"))
 bed <- data.frame(fread(bed_file))
 
-temp_dir = file.path('/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/requant_analyses/tmp',tissue)
+temp_dir = file.path(temp_dir_base,tissue)
 dir.create(temp_dir,recursive = T)
-VCFFILE="/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/GTEx_838_v8_maf0.01_autosomes_unrelated.vcf.gz"
-COVARFILE=paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/requant_analyses/",tissue,"/",tissue,"_formatted_covariates.txt")
+VCFFILE=geno_vcf
+COVARFILE=file.path(analysis_dir,tissue,paste0(tissue,"_formatted_covariates.txt"))
 
 cat('Covariate residualizing')
-outfile = paste0("/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/requant_analyses/",tissue,"/",annot,"_",quant,".v8.normalized_expression_corrected.bed")
+outfile = file.path(analysis_dir,tissue,paste0(annot,"_",quant,".v8.normalized_expression_corrected.bed"))
 if (!file.exists(outfile)){
   system(paste('QTLtools correct --bed ',bed_file,
                '--cov',COVARFILE,'--normal --out',outfile))}
 
 bed <- data.frame(fread(outfile))
 
-gtex_snpfile = '/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/GTEx_838_v8_maf0.01_autosomes_unrelated'
+gtex_snpfile = geno_plink_prefix
 snps = snp_attach(snp_readBed2(paste0(gtex_snpfile,'.bed'),
                                backingfile = tempfile()))
 dir.create(temp_dir,recursive = T)
@@ -68,7 +90,7 @@ result_df <- data.frame(tissue=tissue,
 # function to process TWAS models for a single gene (one row)
 process_single_gene <- function(row_index, gene_data, snps_matrix, snps) {
   
-  out_dir = file.path('/rsrch5/scratch/epi/sthead/GTEx_gencode_comp/requant_analyses/TWAS_weights',
+  out_dir = file.path(twas_weights_dir,
                       paste(tissue,annot,quant,sep="_"))
   dir.create(out_dir, recursive = T, showWarnings = FALSE)
   

@@ -1,9 +1,15 @@
 #!/bin/bash
 
-# --- Paths ---
-sample_IDs="/rsrch5/home/epi/bhattacharya_lab/data/GTEx_v8/GTEx_v8_sample_attributes.txt"
-bamdir="/rsrch3/scratch/reflib/GTEx/SourceFiles/Bam"
-out_file="/rsrch5/home/epi/stbresnahan/scratch/GTEx/GTE_bam_list.tsv"
+# ============================ USER CONFIGURATION ============================
+# Edit the defaults below, or export these variables before running.
+#   sample_IDs  GTEx v8 sample attributes file (tab-delimited; column 1 is the
+#               sample ID)
+#   bamdir      directory holding the source GTEx BAM files
+#   out_file    output sample_id -> bam_file lookup table
+# ============================================================================
+sample_IDs="${sample_IDs:-/path/to/GTEx_v8/GTEx_v8_sample_attributes.txt}"
+bamdir="${bamdir:-/path/to/GTEx/SourceFiles/Bam}"
+out_file="${out_file:-/path/to/scratch/GTEx/GTE_bam_list.tsv}"
 
 # --- Prepare output file ---
 echo -e "sample_id\tbam_file" > "$out_file"

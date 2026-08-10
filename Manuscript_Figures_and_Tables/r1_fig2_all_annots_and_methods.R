@@ -1,4 +1,16 @@
 
+####################################################################################
+# USER CONFIGURATION - edit these, or set the matching environment variables
+####################################################################################
+# results_dir  directory holding the aggregated result files read below
+#              (r1_aggregated_eGene_lists.RDS, r1_aggregated_coloc.txt,
+#              r1_gwas_lead_snps.txt, r1_aggregated_twas_z.txt)
+# figures_dir  output directory for the PDF written at the end
+# gtf_file     GENCODE annotation GTF used for gene coordinates
+results_dir <- Sys.getenv("RESULTS_DIR", "/path/to/GTEx_GENCODE_Comp/3_results")
+figures_dir <- Sys.getenv("FIGURES_DIR", "/path/to/GTEx_GENCODE_Comp/Manuscript/Figures/r1")
+gtf_file    <- Sys.getenv("GTF_FILE",    "/path/to/GenomicReferences/txome/gencode_v45/gencode.v45.annotation.gtf")
+####################################################################################
 library(dplyr)
 library(tidyr)
 library(purrr)
@@ -8,12 +20,12 @@ library(data.table)
 library(cowplot)
 library(rtracklayer)
 
-egene_dat <- readRDS("/Users/sthead/OneDrive - Inside MD Anderson/Bhattacharya,Arjun's files - GTEx GENCODE Comp/3_results/r1_aggregated_eGene_lists.RDS")
+egene_dat <- readRDS(file.path(results_dir, "r1_aggregated_eGene_lists.RDS"))
 
 egene_dat$setting <- paste(egene_dat$Method,egene_dat$Annotation,egene_dat$Tissue,sep="/")
 
 
-dat <- data.frame(fread("/Users/sthead/OneDrive - Inside MD Anderson/Bhattacharya,Arjun's files - GTEx GENCODE Comp/3_results/r1_aggregated_coloc.txt"))
+dat <- data.frame(fread(file.path(results_dir, "r1_aggregated_coloc.txt")))
 dat <- dat[dat$P<5e-8,]
 
 dat$setting <- paste(dat$quant,dat$annot,dat$tissue,sep="/")
@@ -23,7 +35,7 @@ names(dat)[names(dat)=="annot"] <- "Annotation"
 names(dat)[names(dat)=="quant"] <- "Method"
 names(dat)[names(dat)=="tissue"] <- "Tissue"
 
-gwas <- data.frame(fread("/Users/sthead/OneDrive - Inside MD Anderson/Bhattacharya,Arjun's files - GTEx GENCODE Comp/3_results/r1_gwas_lead_snps.txt"))
+gwas <- data.frame(fread(file.path(results_dir, "r1_gwas_lead_snps.txt")))
 
 setDT(dat)
 setDT(gwas)
@@ -226,7 +238,7 @@ gg_2a_1 <- ggplot(overlap_prop,
 
 # figure 2b_2
 
-dat <- data.frame(fread("/Users/sthead/OneDrive - Inside MD Anderson/Bhattacharya,Arjun's files - GTEx GENCODE Comp/3_results/r1_aggregated_coloc.txt"))
+dat <- data.frame(fread(file.path(results_dir, "r1_aggregated_coloc.txt")))
 dat <- dat[dat$P<5e-8,]
 
 names(dat)[names(dat)=="annot"] <- "Annotation"
@@ -386,7 +398,7 @@ gg_2b_1 <- ggplot(overlap_prop,
 
 ## figure 2c_2
 
-dat <- data.frame(fread("/Users/sthead/OneDrive - Inside MD Anderson/Bhattacharya,Arjun's files - GTEx GENCODE Comp/3_results/r1_aggregated_twas_z.txt"))
+dat <- data.frame(fread(file.path(results_dir, "r1_aggregated_twas_z.txt")))
 dat$P <- 2 * pnorm(-abs(dat$TWAS_Z))
 dat <- dat[dat$P<2.5e-06,] 
 
@@ -395,7 +407,7 @@ dat$Annotation <- factor(dat$Annotation,levels=c("GENCODE_v27","GENCODE_v38","GE
 dat$Method <- factor(dat$Method,levels=c("featureCounts","kallisto","RSEM","salmon"),
                          labels=c("featureCounts","kallisto","Salmon","RSEM"))
 
-gtf_gencode <- data.frame(import("/Users/sthead/OneDrive - Inside MD Anderson/isoqtl_GTEx/pass1/files_for_analysis/annot/gencode/gencode.v45.annotation.gtf"))
+gtf_gencode <- data.frame(import(gtf_file))
 gtf_genes <- gtf_gencode[gtf_gencode$type == "gene", ]
 gtf_genes$Gene <- sub("\\..*", "", gtf_genes$gene_id)
 gtf_genes_small <- gtf_genes[, c("Gene", "seqnames", "start", "end", "strand")]
@@ -404,7 +416,7 @@ colnames(gtf_genes_small) <- c("Gene", "CHR", "START", "END", "STRAND")
 dat_merged <- merge(dat, gtf_genes_small, by = "Gene", all.x = TRUE,all.y=F)
 dat <- dat_merged
 
-gwas <- data.frame(fread("/Users/sthead/OneDrive - Inside MD Anderson/Bhattacharya,Arjun's files - GTEx GENCODE Comp/3_results/r1_gwas_lead_snps.txt"))
+gwas <- data.frame(fread(file.path(results_dir, "r1_gwas_lead_snps.txt")))
 gwas <- gwas[gwas$pheno %in% dat$Phenotype,]
 
 setDT(dat)
@@ -594,7 +606,7 @@ gg_2c_1 <- ggplot(overlap_prop,
 
 # figure 2d_2
 
-dat <- data.frame(fread("/Users/sthead/OneDrive - Inside MD Anderson/Bhattacharya,Arjun's files - GTEx GENCODE Comp/3_results/r1_aggregated_twas_z.txt"))
+dat <- data.frame(fread(file.path(results_dir, "r1_aggregated_twas_z.txt")))
 dat$P <- 2 * pnorm(-abs(dat$TWAS_Z))
 dat <- dat[dat$P<2.5e-06,] 
 
@@ -768,7 +780,7 @@ fin_fig <- cowplot::plot_grid(
 )
 
 ggsave(
-  filename = "/Users/sthead/OneDrive - Inside MD Anderson/Bhattacharya,Arjun's files - GTEx GENCODE Comp/Manuscript/Figures/r1/r1_fig2_all_annots_and_methods.pdf",
+  filename = file.path(figures_dir, "r1_fig2_all_annots_and_methods.pdf"),
   plot = fin_fig,
   width = 15,     
   height = 9,     

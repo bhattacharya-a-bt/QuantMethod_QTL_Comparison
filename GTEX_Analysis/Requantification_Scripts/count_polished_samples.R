@@ -1,8 +1,19 @@
-.libPaths(c("/rsrch5/home/epi/bhattacharya_lab/data/Rlibs/4.3.1", .libPaths()))
-library(SummarizedExperiment)
+################################################################################
+# USER CONFIGURATION - edit these, or set the matching environment variables
+################################################################################
+# r_lib_path  extra R library path; "" to use the default .libPaths()
+# base_path   requantification output root; polished outputs are read from
+#             '<base_path>/polished/<annot>/'
+# annot       annotation version to count samples for
+r_lib_path <- Sys.getenv("R_LIB_PATH",  "")
+base_path  <- Sys.getenv("REQUANT_DIR", "/path/to/GTEx_v8/requants")
+annot      <- Sys.getenv("ANNOT",       "Ensembl")
+################################################################################
 
-base_path <- "/rsrch5/home/epi/stbresnahan/bhattacharya_lab/data/GTEx_v8/requants"
-annot     <- "Ensembl"
+if (nchar(r_lib_path) > 0) {
+  .libPaths(c(r_lib_path, .libPaths()))
+}
+library(SummarizedExperiment)
 
 # Polished directory for Ensembl
 polished_dir <- file.path(base_path, "polished", annot)
